@@ -18,6 +18,13 @@ const initialize = async () => {
     const schema = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
     await pool.query(schema);
     console.log('Database schema initialized successfully.');
+
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM users');
+    if (rows[0].count === 0) {
+      const seed = fs.readFileSync(path.join(__dirname, '../db/seed.sql'), 'utf8');
+      await pool.query(seed);
+      console.log('Database demo data initialized successfully.');
+    }
   } finally {
     await pool.end();
   }

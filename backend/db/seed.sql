@@ -7,7 +7,7 @@ INSERT INTO users (name, email, password, role, studio_name, studio_phone, studi
 VALUES (
   'Alex Morgan',
   'admin@thereelshoot.com',
-  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  '$2b$10$Ur6zjsvUPLC9HcujbWF61.ZjfbJzoYNkN/vI3VaGQzPD7MruQtqiq',
   'admin',
   'thereelshoot',
   '+91 98765 43210',
