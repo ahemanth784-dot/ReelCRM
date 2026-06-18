@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
+const path = require('path');
+const fs = require('fs');
 
 // Middleware
 app.use(cors({
@@ -12,10 +14,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const path = require('path');
-
-// Serve static files from the compiled frontend
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Keep the current single-server localhost workflow while Render serves API only.
+const frontendDist = path.join(__dirname, '../frontend/dist');
+if (process.env.NODE_ENV !== 'production' && fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+}
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -31,13 +34,11 @@ app.use('/api/notifications', require('./routes/notifications'));
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// Catch-all handler for React SPA routing (excluding API routes)
-app.use((req, res) => {
-  if (req.originalUrl.startsWith('/api/')) {
-    return res.status(404).json({ message: 'Route not found.' });
-  }
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
+app.use('/api', (req, res) => res.status(404).json({ message: 'Route not found.' }));
+
+if (process.env.NODE_ENV !== 'production' && fs.existsSync(frontendDist)) {
+  app.use((req, res) => res.sendFile(path.join(frontendDist, 'index.html')));
+}
 
 // Global error handler
 app.use((err, req, res, next) => {
