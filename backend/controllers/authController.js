@@ -54,8 +54,17 @@ const login = async (req, res) => {
 
     const workspaceUser = await getWorkspaceUserForLogin(user);
     const token = jwt.sign({ id: workspaceUser.id, email: user.email, role: workspaceUser.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    const { password: _, ...safeUser } = workspaceUser;
-    res.json({ token, user: { ...safeUser, login_email: user.email } });
+    const { password: _workspacePassword, ...safeWorkspaceUser } = workspaceUser;
+    res.json({
+      token,
+      user: {
+        ...safeWorkspaceUser,
+        name: user.name,
+        email: user.email,
+        login_email: user.email,
+        workspace_id: workspaceUser.id
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error.' });
@@ -78,18 +87,37 @@ const forgotPassword = async (req, res) => {
 // GET /api/auth/me
 const getMe = async (req, res) => {
   try {
-    const result = await pool.query(
+    const workspaceResult = await pool.query(
       'SELECT id, name, email, role, studio_name, studio_phone, studio_address, avatar_url, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
-    res.json({ ...result.rows[0], email: req.user.email || result.rows[0].email });
+    if (workspaceResult.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
+
+    let loginUser = null;
+    if (req.user.email) {
+      const loginResult = await pool.query(
+        'SELECT name, email, avatar_url FROM users WHERE email = $1',
+        [req.user.email]
+      );
+      loginUser = loginResult.rows[0] || null;
+    }
+
+    res.json({
+      ...workspaceResult.rows[0],
+      name: loginUser?.name || workspaceResult.rows[0].name,
+      email: loginUser?.email || req.user.email || workspaceResult.rows[0].email,
+      avatar_url: loginUser?.avatar_url || workspaceResult.rows[0].avatar_url,
+      login_email: loginUser?.email || req.user.email || workspaceResult.rows[0].email,
+      workspace_id: workspaceResult.rows[0].id
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
   }
 };
 
 module.exports = { register, login, forgotPassword, getMe };
+
+
 
 
 
