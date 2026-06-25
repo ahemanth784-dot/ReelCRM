@@ -3,11 +3,11 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 
 const SHARED_WORKSPACE_EMAILS = ['ahemanth784@gmail.com', 'karthiknukala08@gmail.com'];
-const WORKSPACE_OWNER_EMAIL = 'ahemanth784@gmail.com';
+const WORKSPACE_OWNER_ID = 1;
 
 const getWorkspaceUserForLogin = async (user) => {
   if (!SHARED_WORKSPACE_EMAILS.includes(String(user.email).toLowerCase())) return user;
-  const owner = await pool.query('SELECT * FROM users WHERE email = $1', [WORKSPACE_OWNER_EMAIL]);
+  const owner = await pool.query('SELECT * FROM users WHERE id = $1', [WORKSPACE_OWNER_ID]);
   return owner.rows[0] || user;
 };
 
@@ -83,12 +83,14 @@ const getMe = async (req, res) => {
       [req.user.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
-    res.json(result.rows[0]);
+    res.json({ ...result.rows[0], email: req.user.email || result.rows[0].email });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
   }
 };
 
 module.exports = { register, login, forgotPassword, getMe };
+
+
 
 
