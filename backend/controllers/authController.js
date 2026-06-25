@@ -4,6 +4,10 @@ const pool = require('../db');
 
 const SHARED_WORKSPACE_EMAILS = ['ahemanth784@gmail.com', 'karthiknukala08@gmail.com'];
 const WORKSPACE_OWNER_ID = 1;
+const DISPLAY_NAMES = {
+  'ahemanth784@gmail.com': 'Aluvala Hemanth',
+  'karthiknukala08@gmail.com': 'Karthik Nukala'
+};
 
 const getWorkspaceUserForLogin = async (user) => {
   if (!SHARED_WORKSPACE_EMAILS.includes(String(user.email).toLowerCase())) return user;
@@ -59,7 +63,7 @@ const login = async (req, res) => {
       token,
       user: {
         ...safeWorkspaceUser,
-        name: user.name,
+        name: DISPLAY_NAMES[String(user.email).toLowerCase()] || user.name,
         email: user.email,
         login_email: user.email,
         workspace_id: workspaceUser.id
@@ -104,7 +108,7 @@ const getMe = async (req, res) => {
 
     res.json({
       ...workspaceResult.rows[0],
-      name: loginUser?.name || workspaceResult.rows[0].name,
+      name: DISPLAY_NAMES[String(loginUser?.email || req.user.email || '').toLowerCase()] || loginUser?.name || workspaceResult.rows[0].name,
       email: loginUser?.email || req.user.email || workspaceResult.rows[0].email,
       avatar_url: loginUser?.avatar_url || workspaceResult.rows[0].avatar_url,
       login_email: loginUser?.email || req.user.email || workspaceResult.rows[0].email,
@@ -116,6 +120,7 @@ const getMe = async (req, res) => {
 };
 
 module.exports = { register, login, forgotPassword, getMe };
+
 
 
 
