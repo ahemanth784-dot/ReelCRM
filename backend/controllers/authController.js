@@ -7,7 +7,7 @@ const WORKSPACE_OWNER_EMAIL = 'ahemanth784@gmail.com';
 
 const getWorkspaceUserForLogin = async (user) => {
   if (!SHARED_WORKSPACE_EMAILS.includes(String(user.email).toLowerCase())) return user;
-  const owner = await pool.query('SELECT * FROM users WHERE email = ', [WORKSPACE_OWNER_EMAIL]);
+  const owner = await pool.query('SELECT * FROM users WHERE email = $1', [WORKSPACE_OWNER_EMAIL]);
   return owner.rows[0] || user;
 };
 
@@ -90,4 +90,5 @@ const getMe = async (req, res) => {
 };
 
 module.exports = { register, login, forgotPassword, getMe };
+
 
