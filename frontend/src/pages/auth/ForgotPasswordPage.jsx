@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
               <label className="label" style={{ color:'rgba(255,255,255,0.6)' }}>Email Address</label>
               <div style={{ position:'relative' }}>
                 <Mail size={16} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,0.3)' }} />
-                <input type="email" className="input" placeholder="admin@thereelshoot.com"
+                <input type="email" className="input" placeholder="ahemanth784@gmail.com"
                   value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
                   style={{ paddingLeft:42, background:'rgba(255,255,255,0.06)', border:`1.5px solid ${error?'#EF4444':'rgba(255,255,255,0.12)'}`, color:'#fff' }} />
               </div>
@@ -73,3 +73,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

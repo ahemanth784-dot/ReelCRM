@@ -29,7 +29,7 @@ export default function SettingsPage() {
 
   const MOCK_PROFILE = {
     name: 'Admin User',
-    email: 'admin@thereelshoot.com',
+    email: 'ahemanth784@gmail.com',
     studio_name: 'thereelshoot Studio',
     studio_phone: '+91 98765 43210',
     studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
@@ -233,3 +233,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

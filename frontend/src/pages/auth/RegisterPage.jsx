@@ -68,8 +68,8 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <Field id="name" label="Full Name" placeholder="Alex Morgan" field="name" icon={User} />
-          <Field id="reg-email" label="Email Address" type="email" placeholder="admin@thereelshoot.com" field="email" icon={Mail} />
+          <Field id="name" label="Full Name" placeholder="Aluvala Hemanth" field="name" icon={User} />
+          <Field id="reg-email" label="Email Address" type="email" placeholder="ahemanth784@gmail.com" field="email" icon={Mail} />
 
           <div className="form-group">
             <label className="label" style={{ color:'rgba(255,255,255,0.6)' }}>Password</label>
@@ -108,3 +108,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

@@ -2,6 +2,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 
+const SHARED_WORKSPACE_EMAILS = ['ahemanth784@gmail.com', 'karthiknukala08@gmail.com'];
+const WORKSPACE_OWNER_EMAIL = 'ahemanth784@gmail.com';
+
+const getWorkspaceUserForLogin = async (user) => {
+  if (!SHARED_WORKSPACE_EMAILS.includes(String(user.email).toLowerCase())) return user;
+  const owner = await pool.query('SELECT * FROM users WHERE email = ', [WORKSPACE_OWNER_EMAIL]);
+  return owner.rows[0] || user;
+};
+
 // POST /api/auth/register
 const register = async (req, res) => {
   const { name, email, password } = req.body;
@@ -43,9 +52,10 @@ const login = async (req, res) => {
     if (!valid)
       return res.status(401).json({ message: 'Invalid credentials.' });
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    const { password: _, ...safeUser } = user;
-    res.json({ token, user: safeUser });
+    const workspaceUser = await getWorkspaceUserForLogin(user);
+    const token = jwt.sign({ id: workspaceUser.id, email: user.email, role: workspaceUser.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const { password: _, ...safeUser } = workspaceUser;
+    res.json({ token, user: { ...safeUser, login_email: user.email } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error.' });
@@ -80,3 +90,4 @@ const getMe = async (req, res) => {
 };
 
 module.exports = { register, login, forgotPassword, getMe };
+

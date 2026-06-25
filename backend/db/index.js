@@ -9,7 +9,20 @@ const users = [
   {
     id: 1,
     name: 'Admin User',
-    email: 'admin@thereelshoot.com',
+    email: 'ahemanth784@gmail.com',
+    password: bcrypt.hashSync('Admin@123', 10),
+    role: 'admin',
+    studio_name: 'thereelshoot Studio',
+    studio_phone: '+91 98765 43210',
+    studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
+    avatar_url: '',
+    created_at: new Date(),
+    updated_at: new Date()
+  },
+  {
+    id: 2,
+    name: 'Karthik Nukala',
+    email: 'karthiknukala08@gmail.com',
     password: bcrypt.hashSync('Admin@123', 10),
     role: 'admin',
     studio_name: 'thereelshoot Studio',
@@ -76,7 +89,7 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 } else {
   // Fall back to SQLite-like mock query parser
   isMock = true;
-  console.log('⚠️ No DATABASE_URL found. Running with in-memory Mock database (Default login: admin@thereelshoot.com / Admin@123).');
+  console.log('⚠️ No DATABASE_URL found. Running with in-memory Mock database (Default logins: ahemanth784@gmail.com / Admin@123 and karthiknukala08@gmail.com / Admin@123).');
 
   const mockQuery = async (text, params = []) => {
     const sql = text.trim().replace(/\s+/g, ' ');
@@ -602,3 +615,5 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 }
 
 module.exports = pool;
+
+

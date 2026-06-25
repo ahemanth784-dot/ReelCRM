@@ -2,11 +2,22 @@
 -- Run AFTER schema.sql
 -- This inserts a demo user and sample data
 
--- Demo user: email: admin@thereelshoot.com | password: Admin@123
+-- Demo user: email: ahemanth784@gmail.com | password: Admin@123
 INSERT INTO users (name, email, password, role, studio_name, studio_phone, studio_address)
 VALUES (
-  'Alex Morgan',
-  'admin@thereelshoot.com',
+  'Aluvala Hemanth',
+  'ahemanth784@gmail.com',
+  '$2b$10$Ur6zjsvUPLC9HcujbWF61.ZjfbJzoYNkN/vI3VaGQzPD7MruQtqiq',
+  'admin',
+  'thereelshoot',
+  '+91 98765 43210',
+  '42, Studio Lane, Bengaluru, Karnataka 560001'
+) ON CONFLICT (email) DO NOTHING;
+-- Second demo user: email: karthiknukala08@gmail.com | password: Admin@123
+INSERT INTO users (name, email, password, role, studio_name, studio_phone, studio_address)
+VALUES (
+  'Karthik Nukala',
+  'karthiknukala08@gmail.com',
   '$2b$10$Ur6zjsvUPLC9HcujbWF61.ZjfbJzoYNkN/vI3VaGQzPD7MruQtqiq',
   'admin',
   'thereelshoot',
@@ -74,3 +85,6 @@ INSERT INTO activities (user_id, client_id, type, description) VALUES
 (1, NULL, 'lead_added', 'New lead from Instagram - Sanjana Pillai'),
 (1, 9, 'stage_updated', 'Tanvi Gupta moved to Editing stage'),
 (1, 10, 'client_added', 'New pre-wedding client Karthik Nair added');
+
+
+
