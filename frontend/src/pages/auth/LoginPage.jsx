@@ -68,7 +68,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 className="input"
-                placeholder="ahemanth784@gmail.com"
+                placeholder="Enter your email"
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
                 style={{ paddingLeft:42, background:'rgba(255,255,255,0.06)', border:`1.5px solid ${errors.email ? '#EF4444' : 'rgba(255,255,255,0.12)'}`, color:'#fff' }}
@@ -86,7 +86,7 @@ export default function LoginPage() {
                 id="password"
                 type={show ? 'text' : 'password'}
                 className="input"
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 value={form.password}
                 onChange={e => set('password', e.target.value)}
                 style={{ paddingLeft:42, paddingRight:42, background:'rgba(255,255,255,0.06)', border:`1.5px solid ${errors.password ? '#EF4444' : 'rgba(255,255,255,0.12)'}`, color:'#fff' }}
@@ -122,15 +122,11 @@ export default function LoginPage() {
           <Link to="/register" style={{ color:'#818CF8', fontWeight:600, textDecoration:'none' }}>Create one</Link>
         </p>
 
-        {/* Demo credentials */}
-        <div style={{ marginTop:20, padding:'12px 16px', background:'rgba(99,102,241,0.1)', borderRadius:10, border:'1px solid rgba(99,102,241,0.2)', fontSize:12, color:'rgba(255,255,255,0.5)', textAlign:'center', lineHeight:1.8 }}>
-          <strong style={{ color:'rgba(255,255,255,0.7)' }}>Demo:</strong>{' '}
-          ahemanth784@gmail.com / <code style={{ color:'#818CF8' }}>Admin@123</code><br />karthiknukala08@gmail.com / <code style={{ color:'#818CF8' }}>Admin@123</code>
-        </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
 
 
