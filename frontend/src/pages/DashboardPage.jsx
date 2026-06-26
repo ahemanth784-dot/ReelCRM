@@ -83,33 +83,6 @@ const timeAgo = ts => {
   return `${Math.floor(hrs/24)}d ago`;
 };
 
-// Fallback mock data (used if no backend connected)
-const MOCK_STATS = { totalClients:42, activeProjects:18, upcomingShoots:7, pendingDeliveries:5, revenueThisMonth:285000, outstandingPayments:124500, recentActivities:[] };
-const MOCK_REVENUE = [
-  {month:'Jan 2026',collected:95000,total:110000},{month:'Feb 2026',collected:142000,total:160000},
-  {month:'Mar 2026',collected:88000,total:95000},{month:'Apr 2026',collected:210000,total:240000},
-  {month:'May 2026',collected:175000,total:190000},{month:'Jun 2026',collected:285000,total:310000},
-];
-const MOCK_STAGES = [{stage:'enquiry',count:8},{stage:'confirmed',count:12},{stage:'shoot_scheduled',count:7},{stage:'editing',count:5},{stage:'delivered',count:10}];
-const MOCK_LEADS = [{month:'Jan 2026',count:5},{month:'Feb 2026',count:8},{month:'Mar 2026',count:6},{month:'Apr 2026',count:11},{month:'May 2026',count:9},{month:'Jun 2026',count:13}];
-const MOCK_UPCOMING = [
-  {id:1,name:'Priya Sharma',event_type:'Wedding',event_date:'2026-07-15',stage:'shoot_scheduled',payment_status:'deposit_received'},
-  {id:2,name:'Rahul & Meena Verma',event_type:'Wedding',event_date:'2026-07-28',stage:'confirmed',payment_status:'deposit_received'},
-  {id:4,name:'Rohan Mehta',event_type:'Pre-Wedding',event_date:'2026-07-05',stage:'confirmed',payment_status:'fully_paid'},
-  {id:7,name:'Arjun Singh',event_type:'Engagement',event_date:'2026-07-20',stage:'confirmed',payment_status:'fully_paid'},
-];
-const MOCK_PENDING = [
-  {id:3,name:'Ananya Krishnan',event_type:'Maternity',event_date:'2026-06-10',stage:'editing',delay_days:8},
-  {id:9,name:'Tanvi Gupta',event_type:'Baby Shower',event_date:'2026-06-05',stage:'editing',delay_days:13},
-];
-const MOCK_ACTIVITIES = [
-  {id:1,type:'payment_received',description:'Full payment ₹28,000 received from Ananya Krishnan',created_at: new Date(Date.now()-600000).toISOString()},
-  {id:2,type:'delivery',description:'Final gallery delivered to Kavya Reddy',created_at:new Date(Date.now()-3600000).toISOString()},
-  {id:3,type:'client_added',description:'New wedding client Priya Sharma added',created_at:new Date(Date.now()-7200000).toISOString()},
-  {id:4,type:'lead_added',description:'New lead from Instagram – Sanjana Pillai',created_at:new Date(Date.now()-86400000).toISOString()},
-  {id:5,type:'stage_updated',description:'Sunita & Deepak Patel moved to Shoot Scheduled',created_at:new Date(Date.now()-172800000).toISOString()},
-];
-
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
@@ -133,17 +106,16 @@ export default function DashboardPage() {
           api.get('/reports/pending-deliveries'),
         ]);
         setStats(s.data);
-        setRevenue(r.data.length ? r.data : MOCK_REVENUE);
-        setStages(p.data.byStage?.length ? p.data.byStage.map(x=>({...x,count:parseInt(x.count)})) : MOCK_STAGES);
-        setLeadTrend(l.data.monthly?.length ? l.data.monthly.map(x=>({...x,count:parseInt(x.count)})) : MOCK_LEADS);
-        setUpcoming(u.data.length ? u.data : MOCK_UPCOMING);
-        setPending(pd.data.length ? pd.data : MOCK_PENDING);
-        setActivities(s.data.recentActivities?.length ? s.data.recentActivities : MOCK_ACTIVITIES);
+        setRevenue(Array.isArray(r.data) ? r.data : []);
+        setStages(Array.isArray(p.data.byStage) ? p.data.byStage.map(x=>({...x,count:parseInt(x.count) || 0})) : []);
+        setLeadTrend(Array.isArray(l.data.monthly) ? l.data.monthly.map(x=>({...x,count:parseInt(x.count) || 0})) : []);
+        setUpcoming(Array.isArray(u.data) ? u.data : []);
+        setPending(Array.isArray(pd.data) ? pd.data : []);
+        setActivities(Array.isArray(s.data.recentActivities) ? s.data.recentActivities : []);
       } catch {
-        setStats(MOCK_STATS);
-        setRevenue(MOCK_REVENUE); setStages(MOCK_STAGES);
-        setLeadTrend(MOCK_LEADS); setUpcoming(MOCK_UPCOMING);
-        setPending(MOCK_PENDING); setActivities(MOCK_ACTIVITIES);
+        setStats({ totalClients:0, activeProjects:0, upcomingShoots:0, pendingDeliveries:0, revenueThisMonth:0, outstandingPayments:0, recentActivities:[] });
+        setRevenue([]); setStages([]); setLeadTrend([]);
+        setUpcoming([]); setPending([]); setActivities([]);
       } finally { setLoading(false); }
     };
     load();
@@ -337,7 +309,7 @@ export default function DashboardPage() {
           </div>
           <ArrowUpRight size={18} color="var(--text-muted)" />
         </div>
-        {(activities.length ? activities : MOCK_ACTIVITIES).map(a => (
+        {activities.map(a => (
           <div key={a.id} className="activity-item">
             <ActivityIcon type={a.type} />
             <div style={{ flex:1, minWidth:0 }}>
@@ -350,3 +322,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
