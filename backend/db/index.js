@@ -1,75 +1,105 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
+const fs = require('fs');
+const path = require('path');
+
 let pool;
 let isMock = false;
 
+const DB_FILE = path.join(__dirname, 'mock_db.json');
+
 // In-memory tables to mimic PostgreSQL state in local dev/demo mode
-const users = [
-  {
-    id: 1,
-    name: 'Admin User',
-    email: 'ahemanth784@gmail.com',
-    password: bcrypt.hashSync('Admin@123', 10),
-    role: 'admin',
-    studio_name: 'thereelshoot Studio',
-    studio_phone: '+91 98765 43210',
-    studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
-    avatar_url: '',
-    created_at: new Date(),
-    updated_at: new Date()
-  },
-  {
-    id: 2,
-    name: 'Karthik Nukala',
-    email: 'karthiknukala08@gmail.com',
-    password: bcrypt.hashSync('Admin@123', 10),
-    role: 'admin',
-    studio_name: 'thereelshoot Studio',
-    studio_phone: '+91 98765 43210',
-    studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
-    avatar_url: '',
-    created_at: new Date(),
-    updated_at: new Date()
+let users = [];
+let clients = [];
+let leads = [];
+let pipeline = [];
+let payments = [];
+let activities = [];
+
+if (fs.existsSync(DB_FILE)) {
+  try {
+    const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    users = data.users || [];
+    clients = data.clients || [];
+    leads = data.leads || [];
+    pipeline = data.pipeline || [];
+    payments = data.payments || [];
+    activities = data.activities || [];
+  } catch (err) {
+    console.error('Error reading mock_db.json:', err);
   }
-];
+} else {
+  // Initialize with defaults if file doesn't exist
+  users = [
+    {
+      id: 1,
+      name: 'Admin User',
+      email: 'ahemanth784@gmail.com',
+      password: bcrypt.hashSync('Admin@123', 10),
+      role: 'admin',
+      studio_name: 'thereelshoot Studio',
+      studio_phone: '+91 98765 43210',
+      studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
+      avatar_url: '',
+      created_at: new Date(),
+      updated_at: new Date()
+    },
+    {
+      id: 2,
+      name: 'Karthik Nukala',
+      email: 'karthiknukala08@gmail.com',
+      password: bcrypt.hashSync('Admin@123', 10),
+      role: 'admin',
+      studio_name: 'thereelshoot Studio',
+      studio_phone: '+91 98765 43210',
+      studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
+      avatar_url: '',
+      created_at: new Date(),
+      updated_at: new Date()
+    }
+  ];
 
-const clients = [
-  { id: 1, user_id: 1, name: 'Priya Sharma', phone: '+91 98001 11111', email: 'priya@example.com', event_type: 'Wedding', event_date: '2026-07-15', address: 'Mumbai', notes: 'Traditional coverage', status: 'active', created_at: new Date(), updated_at: new Date() },
-  { id: 2, user_id: 1, name: 'Rahul & Meena Verma', phone: '+91 98001 22222', email: 'rahul@example.com', event_type: 'Wedding', event_date: '2026-07-28', address: 'Alibaug', notes: 'Couple portraits', status: 'active', created_at: new Date(), updated_at: new Date() },
-  { id: 3, user_id: 1, name: 'Ananya Krishnan', phone: '+91 98001 33333', email: 'ananya@example.com', event_type: 'Maternity', event_date: '2026-06-30', address: 'Pune', notes: 'Outdoor shoot', status: 'active', created_at: new Date(), updated_at: new Date() },
-  { id: 4, user_id: 1, name: 'Rohan Mehta', phone: '+91 98001 44444', email: 'rohan@example.com', event_type: 'Pre-Wedding', event_date: '2026-07-05', address: 'Goa', notes: 'Beach shoot', status: 'active', created_at: new Date(), updated_at: new Date() },
-  { id: 5, user_id: 1, name: 'hemanth', phone: '+916309981270', email: 'ahemanth784@gmail.com', event_type: 'Engagement', event_date: '2026-05-04', address: '', notes: '', status: 'active', created_at: new Date('2026-06-18'), updated_at: new Date('2026-06-18') },
-  { id: 6, user_id: 1, name: 'hemanth', phone: '+916309981270', email: 'ahemanth784@gmail.com', event_type: 'Wedding', event_date: '2026-07-20', address: '', notes: '', status: 'active', created_at: new Date('2026-06-19'), updated_at: new Date('2026-06-19') }
-];
+  clients = [
+    { id: 1, user_id: 1, name: 'Priya Sharma', phone: '+91 98001 11111', email: 'priya@example.com', event_type: 'Wedding', event_date: '2026-07-15', address: 'Mumbai', notes: 'Traditional coverage', status: 'active', created_at: new Date(), updated_at: new Date() },
+    { id: 2, user_id: 1, name: 'Rahul & Meena Verma', phone: '+91 98001 22222', email: 'rahul@example.com', event_type: 'Wedding', event_date: '2026-07-28', address: 'Alibaug', notes: 'Couple portraits', status: 'active', created_at: new Date(), updated_at: new Date() },
+    { id: 3, user_id: 1, name: 'Ananya Krishnan', phone: '+91 98001 33333', email: 'ananya@example.com', event_type: 'Maternity', event_date: '2026-06-30', address: 'Pune', notes: 'Outdoor shoot', status: 'active', created_at: new Date(), updated_at: new Date() },
+    { id: 4, user_id: 1, name: 'Rohan Mehta', phone: '+91 98001 44444', email: 'rohan@example.com', event_type: 'Pre-Wedding', event_date: '2026-07-05', address: 'Goa', notes: 'Beach shoot', status: 'active', created_at: new Date(), updated_at: new Date() },
+    { id: 5, user_id: 1, name: 'hemanth', phone: '+916309981270', email: 'ahemanth784@gmail.com', event_type: 'Engagement', event_date: '2026-05-04', address: '', notes: '', status: 'active', created_at: new Date('2026-06-18'), updated_at: new Date('2026-06-18') },
+    { id: 6, user_id: 1, name: 'hemanth', phone: '+916309981270', email: 'ahemanth784@gmail.com', event_type: 'Wedding', event_date: '2026-07-20', address: '', notes: '', status: 'active', created_at: new Date('2026-06-19'), updated_at: new Date('2026-06-19') }
+  ];
 
-const leads = [
-  { id: 1, user_id: 1, name: 'Sanjana Pillai', phone: '+91 90001 11111', email: 'sanjana@example.com', event_type: 'Wedding', event_date: '2026-10-15', budget: 80000, source: 'Instagram', notes: 'Interested in outdoor package', status: 'new', created_at: new Date(), updated_at: new Date() },
-  { id: 2, user_id: 1, name: 'Mohit & Preeti Agarwal', phone: '+91 90001 22222', email: 'mohit@example.com', event_type: 'Wedding', event_date: '2026-11-20', budget: 120000, source: 'Referral', notes: 'Inquired on call', status: 'contacted', created_at: new Date(), updated_at: new Date() }
-];
+  leads = [
+    { id: 1, user_id: 1, name: 'Sanjana Pillai', phone: '+91 90001 11111', email: 'sanjana@example.com', event_type: 'Wedding', event_date: '2026-10-15', budget: 80000, source: 'Instagram', notes: 'Interested in outdoor package', status: 'new', created_at: new Date(), updated_at: new Date() },
+    { id: 2, user_id: 1, name: 'Mohit & Preeti Agarwal', phone: '+91 90001 22222', email: 'mohit@example.com', event_type: 'Wedding', event_date: '2026-11-20', budget: 120000, source: 'Referral', notes: 'Inquired on call', status: 'contacted', created_at: new Date(), updated_at: new Date() }
+  ];
 
-const pipeline = [
-  { id: 1, user_id: 1, client_id: 1, stage: 'shoot_scheduled', notes: '', created_at: new Date(), updated_at: new Date() },
-  { id: 2, user_id: 1, client_id: 2, stage: 'confirmed', notes: '', created_at: new Date(), updated_at: new Date() },
-  { id: 3, user_id: 1, client_id: 3, stage: 'editing', notes: '', created_at: new Date(), updated_at: new Date() },
-  { id: 4, user_id: 1, client_id: 4, stage: 'confirmed', notes: '', created_at: new Date(), updated_at: new Date() },
-  { id: 5, user_id: 1, client_id: 5, stage: 'enquiry', notes: '', created_at: new Date(), updated_at: new Date() },
-  { id: 6, user_id: 1, client_id: 6, stage: 'enquiry', notes: '', created_at: new Date(), updated_at: new Date() }
-];
+  pipeline = [
+    { id: 1, user_id: 1, client_id: 1, stage: 'shoot_scheduled', notes: '', created_at: new Date(), updated_at: new Date() },
+    { id: 2, user_id: 1, client_id: 2, stage: 'confirmed', notes: '', created_at: new Date(), updated_at: new Date() },
+    { id: 3, user_id: 1, client_id: 3, stage: 'editing', notes: '', created_at: new Date(), updated_at: new Date() },
+    { id: 4, user_id: 1, client_id: 4, stage: 'confirmed', notes: '', created_at: new Date(), updated_at: new Date() },
+    { id: 5, user_id: 1, client_id: 5, stage: 'enquiry', notes: '', created_at: new Date(), updated_at: new Date() },
+    { id: 6, user_id: 1, client_id: 6, stage: 'enquiry', notes: '', created_at: new Date(), updated_at: new Date() }
+  ];
 
-const payments = [
-  { id: 1, user_id: 1, client_id: 1, total_amount: 85000, deposit_amount: 42500, balance_amount: 42500, paid_amount: 42500, payment_status: 'deposit_received', due_date: '2026-07-01', created_at: new Date(), updated_at: new Date() },
-  { id: 2, user_id: 1, client_id: 2, total_amount: 120000, deposit_amount: 50000, balance_amount: 70000, paid_amount: 50000, payment_status: 'deposit_received', due_date: '2026-07-10', created_at: new Date(), updated_at: new Date() },
-  { id: 3, user_id: 1, client_id: 3, total_amount: 28000, deposit_amount: 10000, balance_amount: 0, paid_amount: 28000, payment_status: 'fully_paid', due_date: '2026-06-15', created_at: new Date(), updated_at: new Date() },
-  { id: 4, user_id: 1, client_id: 4, total_amount: 45000, deposit_amount: 20000, balance_amount: 0, paid_amount: 45000, payment_status: 'fully_paid', due_date: '2026-06-25', created_at: new Date(), updated_at: new Date() },
-  { id: 5, user_id: 1, client_id: 5, total_amount: 0, deposit_amount: 0, balance_amount: 0, paid_amount: 0, payment_status: 'fully_paid', due_date: null, created_at: new Date(), updated_at: new Date() },
-  { id: 6, user_id: 1, client_id: 6, total_amount: 0, deposit_amount: 0, balance_amount: 0, paid_amount: 0, payment_status: 'pending', due_date: null, created_at: new Date(), updated_at: new Date() }
-];
+  payments = [
+    { id: 1, user_id: 1, client_id: 1, total_amount: 85000, deposit_amount: 42500, balance_amount: 42500, paid_amount: 42500, payment_status: 'deposit_received', due_date: '2026-07-01', created_at: new Date(), updated_at: new Date() },
+    { id: 2, user_id: 1, client_id: 2, total_amount: 120000, deposit_amount: 50000, balance_amount: 70000, paid_amount: 50000, payment_status: 'deposit_received', due_date: '2026-07-10', created_at: new Date(), updated_at: new Date() },
+    { id: 3, user_id: 1, client_id: 3, total_amount: 28000, deposit_amount: 10000, balance_amount: 0, paid_amount: 28000, payment_status: 'fully_paid', due_date: '2026-06-15', created_at: new Date(), updated_at: new Date() },
+    { id: 4, user_id: 1, client_id: 4, total_amount: 45000, deposit_amount: 20000, balance_amount: 0, paid_amount: 45000, payment_status: 'fully_paid', due_date: '2026-06-25', created_at: new Date(), updated_at: new Date() },
+    { id: 5, user_id: 1, client_id: 5, total_amount: 0, deposit_amount: 0, balance_amount: 0, paid_amount: 0, payment_status: 'fully_paid', due_date: null, created_at: new Date(), updated_at: new Date() },
+    { id: 6, user_id: 1, client_id: 6, total_amount: 0, deposit_amount: 0, balance_amount: 0, paid_amount: 0, payment_status: 'pending', due_date: null, created_at: new Date(), updated_at: new Date() }
+  ];
 
-const activities = [
-  { id: 1, user_id: 1, client_id: 1, type: 'client_added', description: 'New client Priya Sharma added', created_at: new Date(Date.now() - 3600000 * 2) },
-  { id: 2, user_id: 1, client_id: 3, type: 'payment_received', description: 'Full payment ₹28,000 received from Ananya Krishnan', created_at: new Date(Date.now() - 600000) }
-];
+  activities = [
+    { id: 1, user_id: 1, client_id: 1, type: 'client_added', description: 'New client Priya Sharma added', created_at: new Date(Date.now() - 3600000 * 2) },
+    { id: 2, user_id: 1, client_id: 3, type: 'payment_received', description: 'Full payment ₹28,000 received from Ananya Krishnan', created_at: new Date(Date.now() - 600000) }
+  ];
+  
+  // Save initial state
+  fs.writeFileSync(DB_FILE, JSON.stringify({ users, clients, leads, pipeline, payments, activities }, null, 2));
+}
 
 if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:password')) {
   // Use real PostgreSQL
@@ -91,7 +121,11 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
   isMock = true;
   console.log('⚠️ No DATABASE_URL found. Running with in-memory Mock database (Default logins: ahemanth784@gmail.com / Admin@123 and karthiknukala08@gmail.com / Admin@123).');
 
-  const mockQuery = async (text, params = []) => {
+  const persistDb = () => {
+    fs.writeFileSync(DB_FILE, JSON.stringify({ users, clients, leads, pipeline, payments, activities }, null, 2));
+  };
+
+  const originalMockQuery = async (text, params = []) => {
     const sql = text.trim().replace(/\s+/g, ' ');
     const sqlLower = sql.toLowerCase();
 
@@ -577,7 +611,8 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 
     if (sqlLower.includes('select count(*) as count, stage from pipeline where user_id=$1 group by stage')) {
       const userId = params[0];
-      const userPip = pipeline.filter(p => p.user_id === Number(userId));
+      const userClientIds = new Set(clients.filter(c => c.user_id === Number(userId)).map(c => c.id));
+      const userPip = pipeline.filter(p => p.user_id === Number(userId) && userClientIds.has(p.client_id));
       const grouped = {};
       STAGES = ['enquiry', 'confirmed', 'shoot_scheduled', 'editing', 'delivered'];
       STAGES.forEach(s => grouped[s] = 0);
@@ -594,18 +629,88 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 
     if (sqlLower.includes('select sum(paid_amount) as collected, sum(total_amount) as total')) {
       const months = ['Jan 2026', 'Feb 2026', 'Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026'];
-      const totalCollected = payments.reduce((acc, curr) => acc + Number(curr.paid_amount || 0), 0);
-      const totalBooked = payments.reduce((acc, curr) => acc + Number(curr.total_amount || 0), 0);
+      const validClientIds = new Set(clients.map(c => c.id));
+      const validPayments = payments.filter(p => validClientIds.has(p.client_id));
+      const totalCollected = validPayments.reduce((acc, curr) => acc + Number(curr.paid_amount || 0), 0);
+      const totalBooked = validPayments.reduce((acc, curr) => acc + Number(curr.total_amount || 0), 0);
+      const hasClients = clients.length > 0;
       
       const rows = months.map((m, idx) => ({
         month: m,
-        collected: idx === 5 ? totalCollected : 80000 + idx * 15000,
-        total: idx === 5 ? totalBooked : 100000 + idx * 15000
+        collected: hasClients ? (idx === 5 ? totalCollected : 80000 + idx * 15000) : 0,
+        total: hasClients ? (idx === 5 ? totalBooked : 100000 + idx * 15000) : 0
       }));
       return { rows };
     }
 
+    // -- Dashboard Stats --
+    if (sqlLower === 'select count(*) from clients where user_id=$1') {
+      const count = clients.filter(c => c.user_id === Number(params[0])).length;
+      return { rows: [{ count }] };
+    }
+    if (sqlLower === "select count(*) from pipeline where user_id=$1 and stage not in ('delivered')") {
+      const userClientIds = new Set(clients.filter(c => c.user_id === Number(params[0])).map(c => c.id));
+      const count = pipeline.filter(p => p.user_id === Number(params[0]) && p.stage !== 'delivered' && userClientIds.has(p.client_id)).length;
+      return { rows: [{ count }] };
+    }
+    if (sqlLower === "select count(*) from clients where user_id=$1 and event_date >= current_date and event_date <= current_date + interval '30 days'") {
+      const today = new Date();
+      const next30 = new Date(today);
+      next30.setDate(today.getDate() + 30);
+      const count = clients.filter(c => {
+        if (c.user_id !== Number(params[0]) || !c.event_date) return false;
+        const eventDate = new Date(c.event_date);
+        return eventDate >= today && eventDate <= next30;
+      }).length;
+      return { rows: [{ count }] };
+    }
+    if (sqlLower === "select count(*) from pipeline where user_id=$1 and stage='editing'") {
+      const userClientIds = new Set(clients.filter(c => c.user_id === Number(params[0])).map(c => c.id));
+      const count = pipeline.filter(p => p.user_id === Number(params[0]) && p.stage === 'editing' && userClientIds.has(p.client_id)).length;
+      return { rows: [{ count }] };
+    }
+    if (sqlLower.includes("select coalesce(sum(paid_amount),0) as revenue from payments")) {
+      const userClientIds = new Set(clients.filter(c => c.user_id === Number(params[0])).map(c => c.id));
+      const sum = payments.filter(p => p.user_id === Number(params[0]) && userClientIds.has(p.client_id)).reduce((acc, p) => acc + Number(p.paid_amount || 0), 0);
+      return { rows: [{ revenue: sum }] };
+    }
+    if (sqlLower.includes("select coalesce(sum(balance_amount),0) as outstanding from payments")) {
+      const userClientIds = new Set(clients.filter(c => c.user_id === Number(params[0])).map(c => c.id));
+      const sum = payments.filter(p => p.user_id === Number(params[0]) && userClientIds.has(p.client_id) && p.payment_status !== 'fully_paid').reduce((acc, p) => acc + Number(p.balance_amount || 0), 0);
+      return { rows: [{ outstanding: sum }] };
+    }
+    
+    // -- Dashboard Upcoming / Pending --
+    if (sqlLower.includes("order by c.event_date asc limit 10") && sqlLower.includes("left join pipeline pip")) {
+      const res = clients.filter(c => c.user_id === Number(params[0])).slice(0,4).map(c => ({
+        id: c.id, name: c.name, event_type: c.event_type, event_date: c.event_date, phone: c.phone,
+        stage: pipeline.find(p => p.client_id === c.id)?.stage || 'confirmed',
+        payment_status: payments.find(p => p.client_id === c.id)?.payment_status || 'deposit_received'
+      }));
+      return { rows: res };
+    }
+
+    if (sqlLower.includes("current_date - c.event_date as delay_days") && sqlLower.includes("join pipeline pip")) {
+      const res = clients.filter(c => c.user_id === Number(params[0])).slice(0,2).map(c => ({
+        id: c.id, name: c.name, event_type: c.event_type, event_date: c.event_date,
+        stage: 'editing', delay_days: 5
+      }));
+      return { rows: res };
+    }
+
     return { rows: [] };
+  };
+
+  const mockQuery = async (text, params = []) => {
+    const result = await originalMockQuery(text, params);
+    
+    // Auto-persist on any mutating queries
+    const sqlLower = text.trim().toLowerCase();
+    if (sqlLower.includes('insert ') || sqlLower.includes('update ') || sqlLower.includes('delete ')) {
+      persistDb();
+    }
+    
+    return result;
   };
 
   pool = {
@@ -615,5 +720,7 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 }
 
 module.exports = pool;
+
+
 
 
