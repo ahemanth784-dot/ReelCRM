@@ -12,14 +12,6 @@ export default function CalendarPage() {
   const [selectedDateStr, setSelectedDateStr] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const MOCK_EVENTS = [
-    { id: 1, title: 'Priya Sharma (Wedding)', event_date: '2026-07-15', time: '10:00 AM', location: 'Grand Hyatt, Mumbai', event_type: 'Wedding', client_name: 'Priya Sharma' },
-    { id: 2, title: 'Rahul & Meena (Wedding)', event_date: '2026-07-28', time: '04:00 PM', location: 'Sea Breeze Lawn, Alibaug', event_type: 'Wedding', client_name: 'Rahul Verma' },
-    { id: 4, title: 'Rohan Mehta (Pre-Wedding)', event_date: '2026-07-05', time: '06:00 AM', location: 'Gateway of India, Mumbai', event_type: 'Pre-Wedding', client_name: 'Rohan Mehta' },
-    { id: 7, title: 'Arjun Singh (Engagement)', event_date: '2026-07-20', time: '05:00 PM', location: 'St. Regis, Lower Parel', event_type: 'Engagement', client_name: 'Arjun Singh' },
-    { id: 10, title: 'Karthik Nair (Pre-Wedding)', event_date: '2026-07-15', time: '05:30 PM', location: 'Marine Drive, Mumbai', event_type: 'Pre-Wedding', client_name: 'Karthik Nair' },
-  ];
-
   useEffect(() => {
     const fetchEvents = async () => {
       setLoading(true);
@@ -27,9 +19,9 @@ export default function CalendarPage() {
         const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
         const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
         const res = await api.get(`/calendar?start=${start}&end=${end}`);
-        setEvents(res.data.length ? res.data : MOCK_EVENTS);
+        setEvents(Array.isArray(res.data) ? res.data : []);
       } catch {
-        setEvents(MOCK_EVENTS);
+        setEvents([]);
       } finally {
         setLoading(false);
       }
@@ -314,3 +306,4 @@ export default function CalendarPage() {
     </div>
   );
 }
+

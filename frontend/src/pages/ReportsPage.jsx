@@ -19,39 +19,6 @@ export default function ReportsPage() {
     totalBookings: 0
   });
 
-  const MOCK_REVENUE = [
-    { month: 'Jan 2026', collected: 95000, total: 110000 },
-    { month: 'Feb 2026', collected: 142000, total: 160000 },
-    { month: 'Mar 2026', collected: 88000, total: 95000 },
-    { month: 'Apr 2026', collected: 210000, total: 240000 },
-    { month: 'May 2026', collected: 175000, total: 190000 },
-    { month: 'Jun 2026', collected: 285000, total: 310000 },
-  ];
-
-  const MOCK_STAGES = [
-    { stage: 'enquiry', count: 8 },
-    { stage: 'confirmed', count: 12 },
-    { stage: 'shoot_scheduled', count: 7 },
-    { stage: 'editing', count: 5 },
-    { stage: 'delivered', count: 10 },
-  ];
-
-  const MOCK_LEADS = [
-    { month: 'Jan 2026', count: 5 },
-    { month: 'Feb 2026', count: 8 },
-    { month: 'Mar 2026', count: 6 },
-    { month: 'Apr 2026', count: 11 },
-    { month: 'May 2026', count: 9 },
-    { month: 'Jun 2026', count: 13 },
-  ];
-
-  const MOCK_SUMMARY = {
-    totalRevenue: 995000,
-    outstanding: 124500,
-    conversionRate: 64.5,
-    totalBookings: 42
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -62,24 +29,35 @@ export default function ReportsPage() {
           api.get('/reports/leads')
         ]);
         
-        setRevenueData(revRes.data.length ? revRes.data : MOCK_REVENUE);
-        setStageData(projRes.data.byStage?.length ? projRes.data.byStage.map(x => ({...x, count: parseInt(x.count)})) : MOCK_STAGES);
-        setLeadTrend(leadRes.data.monthly?.length ? leadRes.data.monthly.map(x => ({...x, count: parseInt(x.count)})) : MOCK_LEADS);
+        const revenueRows = Array.isArray(revRes.data) ? revRes.data : [];
+        const stageRows = Array.isArray(projRes.data.byStage) ? projRes.data.byStage.map(x => ({...x, count: parseInt(x.count) || 0})) : [];
+        const leadRows = Array.isArray(leadRes.data.monthly) ? leadRes.data.monthly.map(x => ({...x, count: parseInt(x.count) || 0})) : [];
+
+        setRevenueData(revenueRows);
+        setStageData(stageRows);
+        setLeadTrend(leadRows);
         
-        // Compute summary values from fetched datasets or use defaults
-        const totalRev = revRes.data.reduce((acc, curr) => acc + Number(curr.collected || 0), 0) || MOCK_SUMMARY.totalRevenue;
-        const totalProj = projRes.data.totalCount || MOCK_SUMMARY.totalBookings;
+        const totalRev = revenueRows.reduce((acc, curr) => acc + Number(curr.collected || 0), 0);
+        const totalOutstanding = revenueRows.reduce((acc, curr) => acc + Number(curr.outstanding || 0), 0);
+        const totalProj = Number(projRes.data.totalCount || 0);
+        const totalLeads = Number(leadRes.data.totalLeads || 0);
+        const confirmedLeads = Number(leadRes.data.confirmedLeads || 0);
         setSummary({
           totalRevenue: totalRev,
-          outstanding: MOCK_SUMMARY.outstanding,
-          conversionRate: MOCK_SUMMARY.conversionRate,
+          outstanding: totalOutstanding,
+          conversionRate: totalLeads ? Number(((confirmedLeads / totalLeads) * 100).toFixed(1)) : 0,
           totalBookings: totalProj
         });
       } catch {
-        setRevenueData(MOCK_REVENUE);
-        setStageData(MOCK_STAGES);
-        setLeadTrend(MOCK_LEADS);
-        setSummary(MOCK_SUMMARY);
+        setRevenueData([]);
+        setStageData([]);
+        setLeadTrend([]);
+        setSummary({
+          totalRevenue: 0,
+          outstanding: 0,
+          conversionRate: 0,
+          totalBookings: 0
+        });
       } finally {
         setLoading(false);
       }
@@ -254,3 +232,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

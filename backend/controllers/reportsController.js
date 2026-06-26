@@ -26,10 +26,15 @@ const getProjectReport = async (req, res) => {
       [req.user.id]
     );
     const byStage = await pool.query(
-      `SELECT stage, COUNT(*) as count FROM pipeline WHERE user_id=$1 GROUP BY stage`,
+      `SELECT pip.stage, COUNT(*) as count
+       FROM pipeline pip
+       JOIN clients c ON c.id = pip.client_id
+       WHERE pip.user_id=$1 AND c.user_id=$1
+       GROUP BY pip.stage`,
       [req.user.id]
     );
-    res.json({ byType: byType.rows, byStage: byStage.rows });
+    const totalCount = byType.rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+    res.json({ byType: byType.rows, byStage: byStage.rows, totalCount });
   } catch(err) { res.status(500).json({ message:'Server error.' }); }
 };
 
@@ -56,11 +61,23 @@ const getDashboardStats = async (req, res) => {
   try {
     const [clients, activeProjects, upcoming, pending, revenue, outstanding, activities] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM clients WHERE user_id=$1', [uid]),
-      pool.query("SELECT COUNT(*) FROM pipeline WHERE user_id=$1 AND stage NOT IN ('delivered')", [uid]),
+      pool.query(`SELECT COUNT(*)
+                  FROM pipeline pip
+                  JOIN clients c ON c.id = pip.client_id
+                  WHERE pip.user_id=$1 AND c.user_id=$1 AND pip.stage NOT IN ('delivered')`, [uid]),
       pool.query("SELECT COUNT(*) FROM clients WHERE user_id=$1 AND event_date >= CURRENT_DATE AND event_date <= CURRENT_DATE + INTERVAL '30 days'", [uid]),
-      pool.query("SELECT COUNT(*) FROM pipeline WHERE user_id=$1 AND stage='editing'", [uid]),
-      pool.query("SELECT COALESCE(SUM(paid_amount),0) as revenue FROM payments WHERE user_id=$1 AND updated_at >= DATE_TRUNC('month', NOW())", [uid]),
-      pool.query("SELECT COALESCE(SUM(balance_amount),0) as outstanding FROM payments WHERE user_id=$1 AND payment_status != 'fully_paid'", [uid]),
+      pool.query(`SELECT COUNT(*)
+                  FROM pipeline pip
+                  JOIN clients c ON c.id = pip.client_id
+                  WHERE pip.user_id=$1 AND c.user_id=$1 AND pip.stage='editing'`, [uid]),
+      pool.query(`SELECT COALESCE(SUM(p.paid_amount),0) as revenue
+                  FROM payments p
+                  JOIN clients c ON c.id = p.client_id
+                  WHERE p.user_id=$1 AND c.user_id=$1 AND p.updated_at >= DATE_TRUNC('month', NOW())`, [uid]),
+      pool.query(`SELECT COALESCE(SUM(p.balance_amount),0) as outstanding
+                  FROM payments p
+                  JOIN clients c ON c.id = p.client_id
+                  WHERE p.user_id=$1 AND c.user_id=$1 AND p.payment_status != 'fully_paid'`, [uid]),
       pool.query("SELECT * FROM activities WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10", [uid]),
     ]);
     res.json({
@@ -108,3 +125,5 @@ const getPendingDeliveries = async (req, res) => {
 };
 
 module.exports = { getRevenueReport, getProjectReport, getLeadsReport, getDashboardStats, getUpcomingShoots, getPendingDeliveries };
+
+
