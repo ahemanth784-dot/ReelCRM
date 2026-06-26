@@ -4,6 +4,8 @@ import api from '../api/axios';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const toDateKey = date => new Date(date).toLocaleDateString('en-CA');
+const formatDisplayDate = date => new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -17,8 +19,8 @@ export default function CalendarPage() {
     const fetchEvents = async () => {
       setLoading(true);
       try {
-        const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
-        const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
+        const start = toDateKey(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+        const end = toDateKey(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
         const normalizeEvent = e => ({
           ...e,
           event_date: e.event_date || e.date,
@@ -42,12 +44,19 @@ export default function CalendarPage() {
       }
     };
     fetchEvents();
+    const refreshTimer = setInterval(fetchEvents, 30000);
+    const refreshOnFocus = () => fetchEvents();
+    window.addEventListener('focus', refreshOnFocus);
+    return () => {
+      clearInterval(refreshTimer);
+      window.removeEventListener('focus', refreshOnFocus);
+    };
   }, [currentDate]);
 
   // Set selected date's events
   useEffect(() => {
-    const todayStr = currentDate.toISOString().split('T')[0];
-    const filtered = events.filter(e => e.event_date.split('T')[0] === todayStr);
+    const todayStr = toDateKey(currentDate);
+    const filtered = events.filter(e => toDateKey(e.event_date) === todayStr);
     setSelectedDayEvents(filtered);
     setSelectedDateStr(currentDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }));
   }, [events, currentDate]);
@@ -108,8 +117,8 @@ export default function CalendarPage() {
   };
 
   const getEventsForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return events.filter(e => e.event_date.split('T')[0] === dateStr);
+    const dateStr = toDateKey(date);
+    return events.filter(e => toDateKey(e.event_date) === dateStr);
   };
 
   const getEventTypeColor = (type) => {
@@ -321,4 +330,3 @@ export default function CalendarPage() {
     </div>
   );
 }
-

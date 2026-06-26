@@ -27,6 +27,28 @@ const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
 const todayLocal = () => new Date().toLocaleDateString('en-CA');
 const isPastDate = date => Boolean(date) && date.split('T')[0] < todayLocal();
 const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
+const validateClientForm = (form, isEdit = false) => {
+  const errors = {};
+  if (!String(form.name || '').trim()) errors.name = 'Client name is required.';
+  else if (!isValidPersonName(form.name)) errors.name = 'Use letters only. Numbers are not allowed.';
+  if (!isValidIndianMobile(form.phone)) errors.phone = 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
+  if (!form.event_type) errors.event_type = 'Event type is required.';
+  if (!form.event_date) errors.event_date = 'Event date is required.';
+  else if (isPastDate(form.event_date)) errors.event_date = 'Past dates are not allowed.';
+  if (!isEdit) {
+    const total = Number(form.total_amount);
+    const deposit = Number(form.deposit_amount || 0);
+    const paid = Number(form.paid_amount || 0);
+    if (!Number.isFinite(total) || total <= 0) errors.total_amount = 'Total amount must be greater than 0.';
+    if (deposit < 0) errors.deposit_amount = 'Deposit cannot be negative.';
+    else if (Number.isFinite(total) && deposit > total) errors.deposit_amount = 'Deposit cannot be greater than total.';
+    if (paid < 0) errors.paid_amount = 'Paid amount cannot be negative.';
+    else if (Number.isFinite(total) && paid > total) errors.paid_amount = 'Paid amount cannot be greater than total.';
+  }
+  return errors;
+};
+const FieldError = ({ msg }) => msg ? <span className="field-error">{msg}</span> : null;
+const errorClass = msg => `input${msg ? ' input-error' : ''}`;
 
 const PayBadge = ({status}) => {
   const m={fully_paid:{l:'Fully Paid',c:'badge-success'},deposit_received:{l:'Deposit Paid',c:'badge-info'},partially_paid:{l:'Partial',c:'badge-warning'},pending:{l:'Pending',c:'badge-danger'}};
@@ -50,11 +72,16 @@ function ClientModal({ client, onClose, onSave }) {
     ...(client||{})
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const { addToast } = useToast();
 
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const set = (k,v) => setForm(f => {
+    const next = { ...f, [k]: v };
+    setErrors(validateClientForm(next, Boolean(client?.id)));
+    return next;
+  });
   const setTotalAmount = value => setForm(current => {
-    if (value === '') return { ...current, total_amount:'', deposit_amount:'', paid_amount:'' };
+    if (value === '') { const next = { ...current, total_amount:'', deposit_amount:'', paid_amount:'' }; setErrors(validateClientForm(next, Boolean(client?.id))); return next; }
     const total = Math.max(0, Number(value) || 0);
     return {
       ...current,
@@ -64,20 +91,19 @@ function ClientModal({ client, onClose, onSave }) {
     };
   });
   const setCappedPaymentAmount = (field, value) => setForm(current => {
-    if (value === '') return { ...current, [field]:'' };
+    if (value === '') { const next = { ...current, [field]:'' }; setErrors(validateClientForm(next, Boolean(client?.id))); return next; }
     const total = Math.max(0, Number(current.total_amount) || 0);
     const amount = Math.min(Math.max(0, Number(value) || 0), total);
-    return { ...current, [field]:amount.toString() };
+    const next = { ...current, [field]:amount.toString() };
+    setErrors(validateClientForm(next, Boolean(client?.id)));
+    return next;
   });
 
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.name.trim()) { addToast('Client name is required','error'); return; }
-    if (!isValidPersonName(form.name)) { addToast('Client name should not contain numbers or special symbols','error'); return; }
-    if (!form.event_type) { addToast('Event type is required','error'); return; }
-    if (!form.event_date) { addToast('Event date is required','error'); return; }
-    if (isPastDate(form.event_date)) { addToast('Event date cannot be in the past','error'); return; }
-    if (!isValidIndianMobile(form.phone)) { addToast('Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9','error'); return; }
+    const nextErrors = validateClientForm(form, Boolean(client?.id));
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) { addToast('Please fix the highlighted fields','error'); return; }
     if (form.event_date) {
       const year = new Date(form.event_date).getFullYear();
       if (year > 2100 || year < 1900 || isNaN(year)) {
@@ -87,22 +113,10 @@ function ClientModal({ client, onClose, onSave }) {
     }
     if (!client?.id) {
       const total = Number(form.total_amount);
-      if (!Number.isFinite(total) || total <= 0) {
-        addToast('Enter a valid total amount greater than 0','error');
-        return;
-      }
       const deposit = Number(form.deposit_amount || 0);
       const paid = Number(form.paid_amount || 0);
-      if (total < 0 || deposit < 0 || paid < 0) {
-        addToast('Payment amounts cannot be negative','error');
-        return;
-      }
-      if (deposit > total) {
-        addToast('Deposit cannot be greater than total amount','error');
-        return;
-      }
-      if (paid > total) {
-        addToast('Paid amount cannot be greater than total amount','error');
+      if (total < 0 || deposit < 0 || paid < 0 || deposit > total || paid > total) {
+        addToast('Please fix the highlighted payment fields','error');
         return;
       }
     }
@@ -114,8 +128,8 @@ function ClientModal({ client, onClose, onSave }) {
       else res = await api.post('/clients', payload);
       addToast(`Client ${client?.id?'updated':'added'} successfully!`,'success');
       onSave(res.data);
-    } catch {
-      addToast('Failed to save client','error');
+    } catch (error) {
+      addToast(error.response?.data?.message || 'Failed to save client','error');
     } finally { setLoading(false); }
   };
 
@@ -131,11 +145,13 @@ function ClientModal({ client, onClose, onSave }) {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
               <div className="form-group" style={{gridColumn:'1/-1'}}>
                 <label className="label">Client Name *</label>
-                <input className="input" placeholder="Full name or couple's names" value={form.name} onChange={e=>set('name',e.target.value.replace(/[0-9]/g,''))} required />
+                <input className={errorClass(errors.name)} placeholder="Full name or couple's names" value={form.name} onChange={e=>set('name',e.target.value.replace(/[0-9]/g,''))} required />
+                <FieldError msg={errors.name} />
               </div>
               <div className="form-group">
                 <label className="label">Phone *</label>
-                <input className="input" placeholder="9876543210" maxLength={10} value={form.phone||''} onChange={e=>set('phone',e.target.value.replace(/\D/g,'').slice(0,10))} required />
+                <input className={errorClass(errors.phone)} inputMode="numeric" pattern="[0-9]*" placeholder="9876543210" maxLength={10} value={form.phone||''} onChange={e=>set('phone',e.target.value.replace(/\D/g,'').slice(0,10))} required />
+                <FieldError msg={errors.phone} />
               </div>
               <div className="form-group">
                 <label className="label">Email</label>
@@ -143,14 +159,15 @@ function ClientModal({ client, onClose, onSave }) {
               </div>
               <div className="form-group">
                 <label className="label">Event Type *</label>
-                <select className="input" value={form.event_type||''} onChange={e=>set('event_type',e.target.value)} required>
+                <select className={errorClass(errors.event_type)} value={form.event_type||''} onChange={e=>set('event_type',e.target.value)} required>
                   <option value="">Select type</option>
                   {EVENT_TYPES.map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label className="label">Event Date *</label>
-                <input className="input" type="date" min={todayLocal()} value={form.event_date?form.event_date.split('T')[0]:''} onChange={e=>set('event_date',e.target.value)} required />
+                <input className={errorClass(errors.event_date)} type="date" min={todayLocal()} value={form.event_date?form.event_date.split('T')[0]:''} onChange={e=>set('event_date',e.target.value)} required />
+                <FieldError msg={errors.event_date} />
               </div>
               <div className="form-group" style={{gridColumn:'1/-1'}}>
                 <label className="label">Address</label>
@@ -170,15 +187,18 @@ function ClientModal({ client, onClose, onSave }) {
                   </div>
                   <div className="form-group">
                     <label className="label">Total Amount *</label>
-                    <input className="input" type="number" min="0" step="0.01" placeholder="0" value={form.total_amount} onChange={e=>setTotalAmount(e.target.value)} required />
+                    <input className={errorClass(errors.total_amount)} type="number" min="0" step="0.01" placeholder="0" value={form.total_amount} onChange={e=>setTotalAmount(e.target.value)} required />
+                    <FieldError msg={errors.total_amount} />
                   </div>
                   <div className="form-group">
                     <label className="label">Deposit Amount</label>
-                    <input className="input" type="number" min="0" max={Number(form.total_amount||0)} step="0.01" placeholder="0" value={form.deposit_amount} onChange={e=>setCappedPaymentAmount('deposit_amount',e.target.value)} />
+                    <input className={errorClass(errors.deposit_amount)} type="number" min="0" max={Number(form.total_amount||0)} step="0.01" placeholder="0" value={form.deposit_amount} onChange={e=>setCappedPaymentAmount('deposit_amount',e.target.value)} />
+                    <FieldError msg={errors.deposit_amount} />
                   </div>
                   <div className="form-group">
                     <label className="label">Amount Paid</label>
-                    <input className="input" type="number" min="0" max={Number(form.total_amount||0)} step="0.01" placeholder="0" value={form.paid_amount} onChange={e=>setCappedPaymentAmount('paid_amount',e.target.value)} />
+                    <input className={errorClass(errors.paid_amount)} type="number" min="0" max={Number(form.total_amount||0)} step="0.01" placeholder="0" value={form.paid_amount} onChange={e=>setCappedPaymentAmount('paid_amount',e.target.value)} />
+                    <FieldError msg={errors.paid_amount} />
                   </div>
                   <div className="form-group">
                     <label className="label">Balance Amount</label>
@@ -486,4 +506,3 @@ export default function ClientsPage() {
     </div>
   );
 }
-

@@ -5,12 +5,16 @@ const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
 const todayLocal = () => new Date().toISOString().split('T')[0];
 const isPastDate = date => Boolean(date) && String(date).split('T')[0] < todayLocal();
 const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
-const validateClientCore = ({ name, phone, event_type, event_date }) => {
+const VALID_EVENT_TYPES = ['Wedding','Pre-Wedding','Engagement','Maternity','Baby Shower','Portraits','Corporate Event','Birthday','Anniversary','Other'];
+const VALID_CLIENT_STATUSES = ['active','inactive','completed'];
+const validateClientCore = ({ name, phone, event_type, event_date, status = 'active' }) => {
   if (!String(name || '').trim()) return 'Client name is required.';
   if (!isValidPersonName(name)) return 'Client name should not contain numbers or special symbols.';
   if (!isValidIndianMobile(phone)) return 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
   if (!event_type) return 'Event type is required.';
-  if (!event_date) return 'Event date is required.';
+  if (!VALID_EVENT_TYPES.includes(event_type)) return 'Invalid event type.';
+  if (!VALID_CLIENT_STATUSES.includes(status)) return 'Invalid client status.';
+  if (!event_date) return 'Event date is required.'
   if (isPastDate(event_date)) return 'Event date cannot be in the past.';
   return null;
 };
@@ -92,7 +96,7 @@ const createClient = async (req, res) => {
     name, phone, email, event_type, event_date, address, notes, status = 'active',
     total_amount = 0, deposit_amount = 0, paid_amount = 0, payment_method, due_date
   } = req.body;
-  const validationError = validateClientCore({ name, phone, event_type, event_date });
+  const validationError = validateClientCore({ name, phone, event_type, event_date, status });
   if (validationError) return res.status(400).json({ message: validationError });
   const total = Number(total_amount);
   if (!Number.isFinite(total) || total <= 0) {
@@ -115,6 +119,12 @@ const createClient = async (req, res) => {
   else if (deposit > 0 && paid >= deposit) paymentStatus = 'deposit_received';
   else if (paid > 0) paymentStatus = 'partially_paid';
   try {
+    const duplicate = await pool.query(
+      'SELECT id FROM clients WHERE user_id=$1 AND phone=$2 LIMIT 1',
+      [userId, normalizePhone(phone)]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ message: 'A client with this phone number already exists.' });
+
     const result = await pool.query(
       `INSERT INTO clients (user_id, name, phone, email, event_type, event_date, address, notes, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -140,9 +150,15 @@ const createClient = async (req, res) => {
 // PUT /api/clients/:id
 const updateClient = async (req, res) => {
   const { name, phone, email, event_type, event_date, address, notes, status } = req.body;
-  const validationError = validateClientCore({ name, phone, event_type, event_date });
+  const validationError = validateClientCore({ name, phone, event_type, event_date, status });
   if (validationError) return res.status(400).json({ message: validationError });
   try {
+    const duplicate = await pool.query(
+      'SELECT id FROM clients WHERE user_id=$1 AND phone=$2 AND id <> $3 LIMIT 1',
+      [req.user.id, normalizePhone(phone), req.params.id]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ message: 'A client with this phone number already exists.' });
+
     const result = await pool.query(
       `UPDATE clients SET name=$1, phone=$2, email=$3, event_type=$4, event_date=$5,
        address=$6, notes=$7, status=$8, updated_at=NOW()
@@ -171,4 +187,3 @@ const deleteClient = async (req, res) => {
 };
 
 module.exports = { getClients, getClient, createClient, updateClient, deleteClient };
-

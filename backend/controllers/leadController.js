@@ -2,6 +2,25 @@ const pool = require('../db');
 const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
 const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
 const LEAD_STATUSES = ['new','contacted','quoted','confirmed','cancelled'];
+const EVENT_TYPES = ['Wedding','Pre-Wedding','Engagement','Maternity','Baby Shower','Portraits','Corporate Event','Birthday','Anniversary','Other'];
+const SOURCES = ['Instagram','Facebook','Google','Referral','LinkedIn','Walk-in','Other'];
+const todayLocal = () => new Date().toISOString().split('T')[0];
+const isPastDate = date => Boolean(date) && String(date).split('T')[0] < todayLocal();
+const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
+const validateLeadCore = ({ name, phone, event_type, event_date, source, status = 'new', budget }) => {
+  if (!String(name || '').trim()) return 'Lead name is required.';
+  if (!isValidPersonName(name)) return 'Lead name should not contain numbers or special symbols.';
+  if (!isValidIndianMobile(phone)) return 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
+  if (!event_type) return 'Event type is required.';
+  if (!EVENT_TYPES.includes(event_type)) return 'Invalid event type.';
+  if (!event_date) return 'Event date is required.';
+  if (isPastDate(event_date)) return 'Event date cannot be in the past.';
+  if (!source) return 'Source is required.';
+  if (!SOURCES.includes(source)) return 'Invalid lead source.';
+  if (!LEAD_STATUSES.includes(status)) return 'Invalid lead status.';
+  if (budget !== undefined && budget !== null && budget !== '' && Number(budget) < 0) return 'Budget cannot be negative.';
+  return null;
+};
 
 const logActivity = async (userId, clientId, type, description) => {
   try { await pool.query('INSERT INTO activities (user_id,client_id,type,description) VALUES ($1,$2,$3,$4)', [userId, clientId||null, type, description]); } catch(e){}
@@ -48,16 +67,18 @@ const getLead = async (req, res) => {
 const createLead = async (req, res) => {
   const userId = req.user.id;
   const { name, phone, email, event_type, event_date, budget, source, notes, status='new' } = req.body;
-  if (!name) return res.status(400).json({ message: 'Lead name is required.' });
-  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
-  if (!LEAD_STATUSES.includes(status)) return res.status(400).json({ message: 'Invalid lead status.' });
-  if (budget !== undefined && budget !== null && budget !== '' && Number(budget) < 0) {
-    return res.status(400).json({ message: 'Budget cannot be negative.' });
-  }
+  const validationError = validateLeadCore({ name, phone, event_type, event_date, source, status, budget });
+  if (validationError) return res.status(400).json({ message: validationError });
   try {
+    const duplicate = await pool.query(
+      'SELECT id FROM leads WHERE user_id=$1 AND phone=$2 LIMIT 1',
+      [userId, normalizePhone(phone)]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ message: 'A lead with this phone number already exists.' });
+
     const result = await pool.query(
       `INSERT INTO leads (user_id,name,phone,email,event_type,event_date,budget,source,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [userId, name, normalizePhone(phone), email, event_type, event_date||null, budget||null, source, notes, status]
+      [userId, String(name).trim(), normalizePhone(phone), email, event_type, String(event_date).split('T')[0], budget||null, source, notes, status]
     );
     await logActivity(userId, null, 'lead_added', `New lead ${name} added`);
     res.status(201).json(result.rows[0]);
@@ -67,16 +88,18 @@ const createLead = async (req, res) => {
 // PUT /api/leads/:id
 const updateLead = async (req, res) => {
   const { name, phone, email, event_type, event_date, budget, source, notes, status } = req.body;
-  if (!name) return res.status(400).json({ message: 'Lead name is required.' });
-  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
-  if (!LEAD_STATUSES.includes(status)) return res.status(400).json({ message: 'Invalid lead status.' });
-  if (budget !== undefined && budget !== null && budget !== '' && Number(budget) < 0) {
-    return res.status(400).json({ message: 'Budget cannot be negative.' });
-  }
+  const validationError = validateLeadCore({ name, phone, event_type, event_date, source, status, budget });
+  if (validationError) return res.status(400).json({ message: validationError });
   try {
+    const duplicate = await pool.query(
+      'SELECT id FROM leads WHERE user_id=$1 AND phone=$2 AND id <> $3 LIMIT 1',
+      [req.user.id, normalizePhone(phone), req.params.id]
+    );
+    if (duplicate.rows.length) return res.status(409).json({ message: 'A lead with this phone number already exists.' });
+
     const result = await pool.query(
       `UPDATE leads SET name=$1,phone=$2,email=$3,event_type=$4,event_date=$5,budget=$6,source=$7,notes=$8,status=$9,updated_at=NOW() WHERE id=$10 AND user_id=$11 RETURNING *`,
-      [name, normalizePhone(phone), email, event_type, event_date||null, budget||null, source, notes, status, req.params.id, req.user.id]
+      [String(name).trim(), normalizePhone(phone), email, event_type, String(event_date).split('T')[0], budget||null, source, notes, status, req.params.id, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ message: 'Lead not found.' });
     res.json(result.rows[0]);
@@ -93,4 +116,3 @@ const deleteLead = async (req, res) => {
 };
 
 module.exports = { getLeads, getLeadStats, getLead, createLead, updateLead, deleteLead };
-

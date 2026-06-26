@@ -8,6 +8,24 @@ const EVENT_TYPES = ['Wedding','Pre-Wedding','Engagement','Maternity','Baby Show
 const SOURCES = ['Instagram','Facebook','Google','Referral','LinkedIn','Walk-in','Other'];
 const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
 const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
+const todayLocal = () => new Date().toLocaleDateString('en-CA');
+const isPastDate = date => Boolean(date) && date.split('T')[0] < todayLocal();
+const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
+const validateLeadForm = form => {
+  const errors = {};
+  if (!String(form.name || '').trim()) errors.name = 'Lead name is required.';
+  else if (!isValidPersonName(form.name)) errors.name = 'Use letters only. Numbers are not allowed.';
+  if (!isValidIndianMobile(form.phone)) errors.phone = 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
+  if (!form.event_type) errors.event_type = 'Event type is required.';
+  if (!form.event_date) errors.event_date = 'Event date is required.';
+  else if (isPastDate(form.event_date)) errors.event_date = 'Past dates are not allowed.';
+  if (!form.source) errors.source = 'Source is required.';
+  if (!form.status) errors.status = 'Status is required.';
+  if (form.budget !== '' && form.budget !== null && form.budget !== undefined && Number(form.budget) < 0) errors.budget = 'Budget cannot be negative.';
+  return errors;
+};
+const FieldError = ({ msg }) => msg ? <span className="field-error">{msg}</span> : null;
+const errorClass = msg => `input${msg ? ' input-error' : ''}`;
 
 const STATUS_CONFIG = {
   new:       { label:'New',       cls:'badge-info',    icon:'🆕' },
@@ -23,13 +41,19 @@ const fmtCurrency = v => v ? `₹${Number(v).toLocaleString('en-IN')}` : '—';
 function LeadModal({ lead, onClose, onSave }) {
   const [form, setForm] = useState({name:'',phone:'',email:'',event_type:'',event_date:'',budget:'',source:'',notes:'',status:'new',...(lead||{})});
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const { addToast } = useToast();
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const set = (k,v) => setForm(f => {
+    const next = { ...f, [k]: v };
+    setErrors(validateLeadForm(next));
+    return next;
+  });
 
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!form.name.trim()) { addToast('Lead name required','error'); return; }
-    if (!isValidIndianMobile(form.phone)) { addToast('Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9','error'); return; }
+    const nextErrors = validateLeadForm(form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) { addToast('Please fix the highlighted fields','error'); return; }
     if (form.event_date) {
       const year = new Date(form.event_date).getFullYear();
       if (year > 2100 || year < 1900 || isNaN(year)) {
@@ -39,9 +63,9 @@ function LeadModal({ lead, onClose, onSave }) {
     }
     setLoading(true);
     try {
-      const payload = { ...form, phone: normalizePhone(form.phone) };
+      const payload = { ...form, name: form.name.trim(), phone: normalizePhone(form.phone), event_date: form.event_date.split('T')[0] };
       let res;
-      if (lead?.id) res = await api.put(`/leads/${lead.id}`, form);
+      if (lead?.id) res = await api.put(`/leads/${lead.id}`, payload);
       else res = await api.post('/leads', payload);
       addToast(`Lead ${lead?.id?'updated':'added'}!`,'success');
       onSave(res.data);
@@ -61,11 +85,13 @@ function LeadModal({ lead, onClose, onSave }) {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
               <div className="form-group" style={{gridColumn:'1/-1'}}>
                 <label className="label">Full Name *</label>
-                <input className="input" placeholder="Lead name" value={form.name} onChange={e=>set('name',e.target.value)} required/>
+                <input className={errorClass(errors.name)} placeholder="Lead name" value={form.name} onChange={e=>set('name',e.target.value.replace(/[0-9]/g,''))} required/>
+                <FieldError msg={errors.name} />
               </div>
               <div className="form-group">
                 <label className="label">Phone *</label>
-                <input className="input" placeholder="9876543210" maxLength={10} value={form.phone||''} onChange={e=>set('phone',e.target.value.replace(/\D/g,'').slice(0,10))} required/>
+                <input className={errorClass(errors.phone)} inputMode="numeric" pattern="[0-9]*" placeholder="9876543210" maxLength={10} value={form.phone||''} onChange={e=>set('phone',e.target.value.replace(/\D/g,'').slice(0,10))} required/>
+                <FieldError msg={errors.phone} />
               </div>
               <div className="form-group">
                 <label className="label">Email</label>
@@ -79,12 +105,14 @@ function LeadModal({ lead, onClose, onSave }) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="label">Event Date</label>
-                <input className="input" type="date" value={form.event_date?form.event_date.split('T')[0]:''} onChange={e=>set('event_date',e.target.value)}/>
+                <label className="label">Event Date *</label>
+                <input className={errorClass(errors.event_date)} type="date" min={todayLocal()} value={form.event_date?form.event_date.split('T')[0]:''} onChange={e=>set('event_date',e.target.value)} required/>
+                <FieldError msg={errors.event_date} />
               </div>
               <div className="form-group">
                 <label className="label">Budget (₹)</label>
-                <input className="input" type="number" placeholder="50000" value={form.budget||''} onChange={e=>set('budget',e.target.value)}/>
+                <input className={errorClass(errors.budget)} type="number" min="0" placeholder="50000" value={form.budget||''} onChange={e=>set('budget',e.target.value)}/>
+                <FieldError msg={errors.budget} />
               </div>
               <div className="form-group">
                 <label className="label">Source</label>
@@ -94,8 +122,8 @@ function LeadModal({ lead, onClose, onSave }) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="label">Status</label>
-                <select className="input" value={form.status||'new'} onChange={e=>set('status',e.target.value)}>
+                <label className="label">Status *</label>
+                <select className={errorClass(errors.status)} value={form.status||'new'} onChange={e=>set('status',e.target.value)} required>
                   {STATUSES.map(s=><option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
                 </select>
               </div>
@@ -314,7 +342,3 @@ export default function LeadsPage() {
     </div>
   );
 }
-
-
-
-
