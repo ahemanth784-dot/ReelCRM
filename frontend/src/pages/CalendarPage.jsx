@@ -18,8 +18,8 @@ export default function CalendarPage() {
       try {
         const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
         const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
-        const res = await api.get(`/calendar?start=${start}&end=${end}`);
-        setEvents(Array.isArray(res.data) ? res.data : []);
+        const res = await api.get(`/calendar/events?start=${start}&end=${end}`);
+        setEvents(Array.isArray(res.data) ? res.data.map(e => ({ ...e, event_date: e.event_date || e.date })) : []);
       } catch {
         setEvents([]);
       } finally {
@@ -306,4 +306,5 @@ export default function CalendarPage() {
     </div>
   );
 }
+
 
