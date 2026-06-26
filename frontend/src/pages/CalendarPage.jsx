@@ -6,8 +6,9 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 6, 18)); // July 2026 for demo sync
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [selectedDayEvents, setSelectedDayEvents] = useState([]);
   const [selectedDateStr, setSelectedDateStr] = useState('');
   const [loading, setLoading] = useState(true);
@@ -18,10 +19,24 @@ export default function CalendarPage() {
       try {
         const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
         const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
-        const res = await api.get(`/calendar/events?start=${start}&end=${end}`);
-        setEvents(Array.isArray(res.data) ? res.data.map(e => ({ ...e, event_date: e.event_date || e.date })) : []);
+        const normalizeEvent = e => ({
+          ...e,
+          event_date: e.event_date || e.date,
+          event_type: e.event_type || e.eventType,
+          client_name: e.client_name || e.name,
+          title: e.title || `${e.name} - ${e.event_type || e.eventType}`,
+          time: e.time || 'All day',
+          location: e.location || e.address || '',
+        });
+        const [monthRes, upcomingRes] = await Promise.all([
+          api.get(`/calendar/events?start=${start}&end=${end}`),
+          api.get('/calendar/upcoming'),
+        ]);
+        setEvents(Array.isArray(monthRes.data) ? monthRes.data.map(normalizeEvent) : []);
+        setUpcomingEvents(Array.isArray(upcomingRes.data) ? upcomingRes.data.map(normalizeEvent) : []);
       } catch {
         setEvents([]);
+        setUpcomingEvents([]);
       } finally {
         setLoading(false);
       }
@@ -257,17 +272,17 @@ export default function CalendarPage() {
             )}
           </div>
 
-          {/* List of all Monthly Events */}
+          {/* List of Upcoming Events */}
           <div className="card" style={{ padding: 20, flex: 1 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
-              All Shoots in {MONTHS[month]}
+              Upcoming Shoots
             </h3>
 
-            {events.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No shoots booked this month.</p>
+            {upcomingEvents.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No upcoming shoots.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
-                {events.map(e => (
+                {upcomingEvents.map(e => (
                   <div key={e.id} style={{ display: 'flex', gap: 12, paddingBottom: 12, borderBottom: '1px solid var(--border-light)' }}>
                     <div style={{ 
                       width: 40, 
@@ -306,5 +321,4 @@ export default function CalendarPage() {
     </div>
   );
 }
-
 

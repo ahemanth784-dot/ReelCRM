@@ -24,6 +24,9 @@ const PIPELINE_STAGES = [
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
 const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
 const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
+const todayLocal = () => new Date().toLocaleDateString('en-CA');
+const isPastDate = date => Boolean(date) && date.split('T')[0] < todayLocal();
+const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
 
 const PayBadge = ({status}) => {
   const m={fully_paid:{l:'Fully Paid',c:'badge-success'},deposit_received:{l:'Deposit Paid',c:'badge-info'},partially_paid:{l:'Partial',c:'badge-warning'},pending:{l:'Pending',c:'badge-danger'}};
@@ -70,6 +73,10 @@ function ClientModal({ client, onClose, onSave }) {
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) { addToast('Client name is required','error'); return; }
+    if (!isValidPersonName(form.name)) { addToast('Client name should not contain numbers or special symbols','error'); return; }
+    if (!form.event_type) { addToast('Event type is required','error'); return; }
+    if (!form.event_date) { addToast('Event date is required','error'); return; }
+    if (isPastDate(form.event_date)) { addToast('Event date cannot be in the past','error'); return; }
     if (!isValidIndianMobile(form.phone)) { addToast('Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9','error'); return; }
     if (form.event_date) {
       const year = new Date(form.event_date).getFullYear();
@@ -101,9 +108,9 @@ function ClientModal({ client, onClose, onSave }) {
     }
     setLoading(true);
     try {
-      const payload = { ...form, phone: normalizePhone(form.phone) };
+      const payload = { ...form, name: form.name.trim(), phone: normalizePhone(form.phone), event_date: form.event_date.split('T')[0] };
       let res;
-      if (client?.id) res = await api.put(`/clients/${client.id}`, form);
+      if (client?.id) res = await api.put(`/clients/${client.id}`, payload);
       else res = await api.post('/clients', payload);
       addToast(`Client ${client?.id?'updated':'added'} successfully!`,'success');
       onSave(res.data);
@@ -124,7 +131,7 @@ function ClientModal({ client, onClose, onSave }) {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
               <div className="form-group" style={{gridColumn:'1/-1'}}>
                 <label className="label">Client Name *</label>
-                <input className="input" placeholder="Full name or couple's names" value={form.name} onChange={e=>set('name',e.target.value)} required />
+                <input className="input" placeholder="Full name or couple's names" value={form.name} onChange={e=>set('name',e.target.value.replace(/[0-9]/g,''))} required />
               </div>
               <div className="form-group">
                 <label className="label">Phone *</label>
@@ -135,15 +142,15 @@ function ClientModal({ client, onClose, onSave }) {
                 <input className="input" type="email" placeholder="client@email.com" value={form.email||''} onChange={e=>set('email',e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="label">Event Type</label>
-                <select className="input" value={form.event_type||''} onChange={e=>set('event_type',e.target.value)}>
+                <label className="label">Event Type *</label>
+                <select className="input" value={form.event_type||''} onChange={e=>set('event_type',e.target.value)} required>
                   <option value="">Select type</option>
                   {EVENT_TYPES.map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="label">Event Date</label>
-                <input className="input" type="date" value={form.event_date?form.event_date.split('T')[0]:''} onChange={e=>set('event_date',e.target.value)} />
+                <label className="label">Event Date *</label>
+                <input className="input" type="date" min={todayLocal()} value={form.event_date?form.event_date.split('T')[0]:''} onChange={e=>set('event_date',e.target.value)} required />
               </div>
               <div className="form-group" style={{gridColumn:'1/-1'}}>
                 <label className="label">Address</label>
@@ -479,7 +486,4 @@ export default function ClientsPage() {
     </div>
   );
 }
-
-
-
 

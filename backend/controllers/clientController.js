@@ -2,6 +2,18 @@ const pool = require('../db');
 
 const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
 const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
+const todayLocal = () => new Date().toISOString().split('T')[0];
+const isPastDate = date => Boolean(date) && String(date).split('T')[0] < todayLocal();
+const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
+const validateClientCore = ({ name, phone, event_type, event_date }) => {
+  if (!String(name || '').trim()) return 'Client name is required.';
+  if (!isValidPersonName(name)) return 'Client name should not contain numbers or special symbols.';
+  if (!isValidIndianMobile(phone)) return 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.';
+  if (!event_type) return 'Event type is required.';
+  if (!event_date) return 'Event date is required.';
+  if (isPastDate(event_date)) return 'Event date cannot be in the past.';
+  return null;
+};
 
 const logActivity = async (userId, clientId, type, description) => {
   try {
@@ -80,8 +92,8 @@ const createClient = async (req, res) => {
     name, phone, email, event_type, event_date, address, notes, status = 'active',
     total_amount = 0, deposit_amount = 0, paid_amount = 0, payment_method, due_date
   } = req.body;
-  if (!name) return res.status(400).json({ message: 'Client name is required.' });
-  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
+  const validationError = validateClientCore({ name, phone, event_type, event_date });
+  if (validationError) return res.status(400).json({ message: validationError });
   const total = Number(total_amount);
   if (!Number.isFinite(total) || total <= 0) {
     return res.status(400).json({ message: 'Enter a valid total amount greater than 0.' });
@@ -106,7 +118,7 @@ const createClient = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO clients (user_id, name, phone, email, event_type, event_date, address, notes, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [userId, name, normalizePhone(phone), email, event_type, event_date || null, address, notes, status]
+      [userId, String(name).trim(), normalizePhone(phone), email, event_type, String(event_date).split('T')[0], address, notes, status]
     );
     const client = result.rows[0];
     // Auto-create pipeline entry
@@ -128,14 +140,14 @@ const createClient = async (req, res) => {
 // PUT /api/clients/:id
 const updateClient = async (req, res) => {
   const { name, phone, email, event_type, event_date, address, notes, status } = req.body;
-  if (!name) return res.status(400).json({ message: 'Client name is required.' });
-  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
+  const validationError = validateClientCore({ name, phone, event_type, event_date });
+  if (validationError) return res.status(400).json({ message: validationError });
   try {
     const result = await pool.query(
       `UPDATE clients SET name=$1, phone=$2, email=$3, event_type=$4, event_date=$5,
        address=$6, notes=$7, status=$8, updated_at=NOW()
        WHERE id=$9 AND user_id=$10 RETURNING *`,
-      [name, normalizePhone(phone), email, event_type, event_date || null, address, notes, status, req.params.id, req.user.id]
+      [String(name).trim(), normalizePhone(phone), email, event_type, String(event_date).split('T')[0], address, notes, status, req.params.id, req.user.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'Client not found.' });
     res.json(result.rows[0]);
