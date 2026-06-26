@@ -7,8 +7,18 @@ const path = require('path');
 const fs = require('fs');
 
 // Middleware
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://reel-crm.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked origin: ${origin}`));
+  },
   credentials: true
 }));
 app.use(express.json());
