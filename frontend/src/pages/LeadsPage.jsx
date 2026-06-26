@@ -6,6 +6,8 @@ import { useToast } from '../context/ToastContext';
 const STATUSES = ['new','contacted','quoted','confirmed','cancelled'];
 const EVENT_TYPES = ['Wedding','Pre-Wedding','Engagement','Maternity','Baby Shower','Portraits','Corporate Event','Birthday','Anniversary','Other'];
 const SOURCES = ['Instagram','Facebook','Google','Referral','LinkedIn','Walk-in','Other'];
+const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
+const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
 
 const STATUS_CONFIG = {
   new:       { label:'New',       cls:'badge-info',    icon:'🆕' },
@@ -27,6 +29,7 @@ function LeadModal({ lead, onClose, onSave }) {
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) { addToast('Lead name required','error'); return; }
+    if (!isValidIndianMobile(form.phone)) { addToast('Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9','error'); return; }
     if (form.event_date) {
       const year = new Date(form.event_date).getFullYear();
       if (year > 2100 || year < 1900 || isNaN(year)) {
@@ -36,9 +39,10 @@ function LeadModal({ lead, onClose, onSave }) {
     }
     setLoading(true);
     try {
+      const payload = { ...form, phone: normalizePhone(form.phone) };
       let res;
       if (lead?.id) res = await api.put(`/leads/${lead.id}`, form);
-      else res = await api.post('/leads', form);
+      else res = await api.post('/leads', payload);
       addToast(`Lead ${lead?.id?'updated':'added'}!`,'success');
       onSave(res.data);
     } catch (error) { addToast(error.response?.data?.message || 'Failed to save lead','error'); }
@@ -60,8 +64,8 @@ function LeadModal({ lead, onClose, onSave }) {
                 <input className="input" placeholder="Lead name" value={form.name} onChange={e=>set('name',e.target.value)} required/>
               </div>
               <div className="form-group">
-                <label className="label">Phone</label>
-                <input className="input" placeholder="+91 98765 43210" value={form.phone||''} onChange={e=>set('phone',e.target.value)}/>
+                <label className="label">Phone *</label>
+                <input className="input" placeholder="9876543210" maxLength={10} value={form.phone||''} onChange={e=>set('phone',e.target.value.replace(/\D/g,'').slice(0,10))} required/>
               </div>
               <div className="form-group">
                 <label className="label">Email</label>
@@ -310,3 +314,7 @@ export default function LeadsPage() {
     </div>
   );
 }
+
+
+
+

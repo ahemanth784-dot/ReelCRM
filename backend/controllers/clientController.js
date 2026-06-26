@@ -1,5 +1,8 @@
 const pool = require('../db');
 
+const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
+const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
+
 const logActivity = async (userId, clientId, type, description) => {
   try {
     await pool.query(
@@ -78,7 +81,11 @@ const createClient = async (req, res) => {
     total_amount = 0, deposit_amount = 0, paid_amount = 0, payment_method, due_date
   } = req.body;
   if (!name) return res.status(400).json({ message: 'Client name is required.' });
-  const total = Number(total_amount) || 0;
+  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
+  const total = Number(total_amount);
+  if (!Number.isFinite(total) || total <= 0) {
+    return res.status(400).json({ message: 'Enter a valid total amount greater than 0.' });
+  }
   const deposit = Number(deposit_amount) || 0;
   const paid = Number(paid_amount) || 0;
   if (total < 0 || deposit < 0 || paid < 0) {
@@ -99,7 +106,7 @@ const createClient = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO clients (user_id, name, phone, email, event_type, event_date, address, notes, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [userId, name, phone, email, event_type, event_date || null, address, notes, status]
+      [userId, name, normalizePhone(phone), email, event_type, event_date || null, address, notes, status]
     );
     const client = result.rows[0];
     // Auto-create pipeline entry
@@ -121,12 +128,14 @@ const createClient = async (req, res) => {
 // PUT /api/clients/:id
 const updateClient = async (req, res) => {
   const { name, phone, email, event_type, event_date, address, notes, status } = req.body;
+  if (!name) return res.status(400).json({ message: 'Client name is required.' });
+  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
   try {
     const result = await pool.query(
       `UPDATE clients SET name=$1, phone=$2, email=$3, event_type=$4, event_date=$5,
        address=$6, notes=$7, status=$8, updated_at=NOW()
        WHERE id=$9 AND user_id=$10 RETURNING *`,
-      [name, phone, email, event_type, event_date || null, address, notes, status, req.params.id, req.user.id]
+      [name, normalizePhone(phone), email, event_type, event_date || null, address, notes, status, req.params.id, req.user.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'Client not found.' });
     res.json(result.rows[0]);
@@ -150,3 +159,4 @@ const deleteClient = async (req, res) => {
 };
 
 module.exports = { getClients, getClient, createClient, updateClient, deleteClient };
+

@@ -1,4 +1,6 @@
 const pool = require('../db');
+const normalizePhone = phone => String(phone || '').replace(/\D/g, '');
+const isValidIndianMobile = phone => /^[6-9]\d{9}$/.test(normalizePhone(phone));
 const LEAD_STATUSES = ['new','contacted','quoted','confirmed','cancelled'];
 
 const logActivity = async (userId, clientId, type, description) => {
@@ -47,6 +49,7 @@ const createLead = async (req, res) => {
   const userId = req.user.id;
   const { name, phone, email, event_type, event_date, budget, source, notes, status='new' } = req.body;
   if (!name) return res.status(400).json({ message: 'Lead name is required.' });
+  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
   if (!LEAD_STATUSES.includes(status)) return res.status(400).json({ message: 'Invalid lead status.' });
   if (budget !== undefined && budget !== null && budget !== '' && Number(budget) < 0) {
     return res.status(400).json({ message: 'Budget cannot be negative.' });
@@ -54,7 +57,7 @@ const createLead = async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO leads (user_id,name,phone,email,event_type,event_date,budget,source,notes,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [userId, name, phone, email, event_type, event_date||null, budget||null, source, notes, status]
+      [userId, name, normalizePhone(phone), email, event_type, event_date||null, budget||null, source, notes, status]
     );
     await logActivity(userId, null, 'lead_added', `New lead ${name} added`);
     res.status(201).json(result.rows[0]);
@@ -65,6 +68,7 @@ const createLead = async (req, res) => {
 const updateLead = async (req, res) => {
   const { name, phone, email, event_type, event_date, budget, source, notes, status } = req.body;
   if (!name) return res.status(400).json({ message: 'Lead name is required.' });
+  if (!isValidIndianMobile(phone)) return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
   if (!LEAD_STATUSES.includes(status)) return res.status(400).json({ message: 'Invalid lead status.' });
   if (budget !== undefined && budget !== null && budget !== '' && Number(budget) < 0) {
     return res.status(400).json({ message: 'Budget cannot be negative.' });
@@ -72,7 +76,7 @@ const updateLead = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE leads SET name=$1,phone=$2,email=$3,event_type=$4,event_date=$5,budget=$6,source=$7,notes=$8,status=$9,updated_at=NOW() WHERE id=$10 AND user_id=$11 RETURNING *`,
-      [name, phone, email, event_type, event_date||null, budget||null, source, notes, status, req.params.id, req.user.id]
+      [name, normalizePhone(phone), email, event_type, event_date||null, budget||null, source, notes, status, req.params.id, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ message: 'Lead not found.' });
     res.json(result.rows[0]);
@@ -89,3 +93,4 @@ const deleteLead = async (req, res) => {
 };
 
 module.exports = { getLeads, getLeadStats, getLead, createLead, updateLead, deleteLead };
+
