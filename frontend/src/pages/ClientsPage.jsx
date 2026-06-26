@@ -68,6 +68,13 @@ function ClientModal({ client, onClose, onSave }) {
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) { addToast('Client name is required','error'); return; }
+    if (form.event_date) {
+      const year = new Date(form.event_date).getFullYear();
+      if (year > 2100 || year < 1900 || isNaN(year)) {
+        addToast('Please enter a valid event year between 1900 and 2100', 'error');
+        return;
+      }
+    }
     if (!client?.id) {
       const total = Number(form.total_amount);
       const deposit = Number(form.deposit_amount || 0);

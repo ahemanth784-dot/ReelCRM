@@ -27,6 +27,13 @@ function LeadModal({ lead, onClose, onSave }) {
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.name.trim()) { addToast('Lead name required','error'); return; }
+    if (form.event_date) {
+      const year = new Date(form.event_date).getFullYear();
+      if (year > 2100 || year < 1900 || isNaN(year)) {
+        addToast('Please enter a valid event year between 1900 and 2100', 'error');
+        return;
+      }
+    }
     setLoading(true);
     try {
       let res;
