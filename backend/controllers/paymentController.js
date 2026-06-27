@@ -1,5 +1,11 @@
 const pool = require('../db');
 const PAYMENT_STATUSES = ['pending', 'deposit_received', 'partially_paid', 'fully_paid'];
+const calculatePaymentStatus = ({ total, paid, deposit }) => {
+  const balance = Math.max(0, Number(total || 0) - Number(paid || 0));
+  if (Number(total || 0) > 0 && Number(paid || 0) === Number(total || 0) && balance === 0) return 'fully_paid';
+  if (Number(deposit || 0) > 0 && Number(paid || 0) >= Number(deposit || 0)) return 'deposit_received';
+  return 'pending';
+};
 
 const logActivity = async (userId, clientId, type, description) => {
   try { await pool.query('INSERT INTO activities (user_id,client_id,type,description) VALUES ($1,$2,$3,$4)', [userId, clientId||null, type, description]); } catch(e){}
@@ -67,13 +73,30 @@ const updatePaymentStatus = async (req, res) => {
   }
 
   try {
+    const current = await pool.query(
+      'SELECT total_amount, paid_amount, deposit_amount, balance_amount FROM payments WHERE client_id=$1 AND user_id=$2',
+      [req.params.clientId, req.user.id]
+    );
+    if (!current.rows.length) return res.status(404).json({ message:'Payment not found.' });
+
+    const row = current.rows[0];
+    const total = Number(row.total_amount || 0);
+    const paid = Number(row.paid_amount || 0);
+    const deposit = Number(row.deposit_amount || 0);
+    const balance = Math.max(0, total - paid);
+    const autoStatus = calculatePaymentStatus({ total, paid, deposit });
+
+    if (payment_status === 'fully_paid' && (balance > 0 || paid !== total)) {
+      return res.status(400).json({ message: 'Cannot mark Fully Paid while balance amount is pending.' });
+    }
+
     const result = await pool.query(
-      `UPDATE payments SET payment_status=$1, updated_at=NOW()
-       WHERE client_id=$2 AND user_id=$3 RETURNING *`,
-      [payment_status, req.params.clientId, req.user.id]
+      `UPDATE payments SET payment_status=$1, balance_amount=$2, updated_at=NOW()
+       WHERE client_id=$3 AND user_id=$4 RETURNING *`,
+      [autoStatus, balance, req.params.clientId, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ message:'Payment not found.' });
-    await logActivity(req.user.id, req.params.clientId, 'payment_status_updated', `Payment status changed to ${payment_status.replace(/_/g, ' ')}`);
+    await logActivity(req.user.id, req.params.clientId, 'payment_status_updated', `Payment status recalculated as ${autoStatus.replace(/_/g, ' ')}`);
     res.json(result.rows[0]);
   } catch(err) {
     console.error(err);
@@ -101,15 +124,9 @@ const updatePayment = async (req, res) => {
     return res.status(400).json({ message: 'Deposit cannot be greater than total amount.' });
   }
   const balance = Math.max(0, total - paid);
-  let status = 'pending';
-  if (paid >= total && total > 0) status = 'fully_paid';
-  else if (paid >= deposit && deposit > 0) status = 'deposit_received';
-  else if (paid > 0) status = 'partially_paid';
-  if (payment_status !== undefined) {
-    if (!PAYMENT_STATUSES.includes(payment_status)) {
-      return res.status(400).json({ message: 'Invalid payment status.' });
-    }
-    status = payment_status;
+  const status = calculatePaymentStatus({ total, paid, deposit });
+  if (payment_status === 'fully_paid' && status !== 'fully_paid') {
+    return res.status(400).json({ message: 'Cannot mark Fully Paid while balance amount is pending.' });
   }
   try {
     const result = await pool.query(

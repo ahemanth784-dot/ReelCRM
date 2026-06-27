@@ -40,6 +40,8 @@ const validateClientForm = (form, isEdit = false) => {
     const deposit = Number(form.deposit_amount || 0);
     const paid = Number(form.paid_amount || 0);
     if (!Number.isFinite(total) || total <= 0) errors.total_amount = 'Total amount must be greater than 0.';
+    if (form.paid_amount === '' || form.paid_amount === null || form.paid_amount === undefined) errors.paid_amount = 'Paid amount is required. Enter 0 if no amount is paid yet.';
+    if (!form.payment_method) errors.payment_method = 'Payment method is required.';
     if (deposit < 0) errors.deposit_amount = 'Deposit cannot be negative.';
     else if (Number.isFinite(total) && deposit > total) errors.deposit_amount = 'Deposit cannot be greater than total.';
     if (paid < 0) errors.paid_amount = 'Paid amount cannot be negative.';
@@ -197,7 +199,7 @@ function ClientModal({ client, onClose, onSave }) {
                   </div>
                   <div className="form-group">
                     <label className="label">Amount Paid</label>
-                    <input className={errorClass(errors.paid_amount)} type="number" min="0" max={Number(form.total_amount||0)} step="0.01" placeholder="0" value={form.paid_amount} onChange={e=>setCappedPaymentAmount('paid_amount',e.target.value)} />
+                    <input className={errorClass(errors.paid_amount)} type="number" min="0" max={Number(form.total_amount||0)} step="0.01" placeholder="0" value={form.paid_amount} onChange={e=>setCappedPaymentAmount('paid_amount',e.target.value)} required />
                     <FieldError msg={errors.paid_amount} />
                   </div>
                   <div className="form-group">
@@ -205,8 +207,8 @@ function ClientModal({ client, onClose, onSave }) {
                     <input className="input" value={Math.max(0, Number(form.total_amount||0)-Number(form.paid_amount||0))} disabled />
                   </div>
                   <div className="form-group">
-                    <label className="label">Payment Method</label>
-                    <select className="input" value={form.payment_method} onChange={e=>set('payment_method',e.target.value)}>
+                    <label className="label">Payment Method *</label>
+                    <select className={errorClass(errors.payment_method)} value={form.payment_method} onChange={e=>set('payment_method',e.target.value)} required>
                       <option value="">Select method</option>
                       <option value="Cash">Cash</option>
                       <option value="UPI">UPI</option>
@@ -215,6 +217,7 @@ function ClientModal({ client, onClose, onSave }) {
                       <option value="Card">Card</option>
                       <option value="Other">Other</option>
                     </select>
+                    <FieldError msg={errors.payment_method} />
                   </div>
                   <div className="form-group">
                     <label className="label">Payment Due Date</label>

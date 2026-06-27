@@ -7,6 +7,7 @@ const isPastDate = date => Boolean(date) && String(date).split('T')[0] < todayLo
 const isValidPersonName = name => /^[A-Za-z][A-Za-z\s&.'-]*$/.test(String(name || '').trim());
 const VALID_EVENT_TYPES = ['Wedding','Pre-Wedding','Engagement','Maternity','Baby Shower','Portraits','Corporate Event','Birthday','Anniversary','Other'];
 const VALID_CLIENT_STATUSES = ['active','inactive','completed'];
+const VALID_PAYMENT_METHODS = ['Cash','UPI','Bank Transfer','Cheque','Card','Other'];
 const validateClientCore = ({ name, phone, event_type, event_date, status = 'active' }) => {
   if (!String(name || '').trim()) return 'Client name is required.';
   if (!isValidPersonName(name)) return 'Client name should not contain numbers or special symbols.';
@@ -99,6 +100,15 @@ const createClient = async (req, res) => {
   const validationError = validateClientCore({ name, phone, event_type, event_date, status });
   if (validationError) return res.status(400).json({ message: validationError });
   const total = Number(total_amount);
+  if (!payment_method) {
+    return res.status(400).json({ message: 'Payment method is required.' });
+  }
+  if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+    return res.status(400).json({ message: 'Invalid payment method.' });
+  }
+  if (paid_amount === undefined || paid_amount === null || paid_amount === '') {
+    return res.status(400).json({ message: 'Paid amount is required. Enter 0 if no amount is paid yet.' });
+  }
   if (!Number.isFinite(total) || total <= 0) {
     return res.status(400).json({ message: 'Enter a valid total amount greater than 0.' });
   }
@@ -137,7 +147,7 @@ const createClient = async (req, res) => {
       `INSERT INTO payments
        (user_id, client_id, total_amount, deposit_amount, balance_amount, paid_amount, payment_status, payment_method, due_date)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [userId, client.id, total, deposit, balance, paid, paymentStatus, payment_method || null, due_date || null]
+      [userId, client.id, total, deposit, balance, paid, paymentStatus, payment_method, due_date || null]
     );
     await logActivity(userId, client.id, 'client_added', `New client ${name} added`);
     res.status(201).json({ ...client, ...paymentResult.rows[0], id: client.id, stage: 'enquiry' });

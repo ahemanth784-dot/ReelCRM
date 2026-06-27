@@ -5,6 +5,12 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
 const PAYMENT_STATUSES = ['pending', 'deposit_received', 'partially_paid', 'fully_paid'];
+const calculatePaymentStatus = ({ total, paid, deposit }) => {
+  const balance = Math.max(0, Number(total || 0) - Number(paid || 0));
+  if (Number(total || 0) > 0 && Number(paid || 0) === Number(total || 0) && balance === 0) return 'fully_paid';
+  if (Number(deposit || 0) > 0 && Number(paid || 0) >= Number(deposit || 0)) return 'deposit_received';
+  return 'pending';
+};
 export default function PaymentsPage() {
   const { addToast } = useToast();
   const { user } = useAuth();
@@ -221,10 +227,7 @@ function EditPaymentModal({ payment, onClose, onSave }) {
         updated.paid_amount = paid;
         updated.deposit_amount = Math.min(Number(f.deposit_amount || 0), total);
         updated.balance_amount = Math.max(0, total - paid);
-        if (paid === 0) updated.payment_status = 'pending';
-        else if (paid >= total) updated.payment_status = 'fully_paid';
-        else if (updated.deposit_amount > 0 && paid >= updated.deposit_amount) updated.payment_status = 'deposit_received';
-        else if (paid > 0) updated.payment_status = 'partially_paid';
+        updated.payment_status = calculatePaymentStatus({ total, paid, deposit: updated.deposit_amount });
       }
       return updated;
     });
@@ -280,11 +283,10 @@ function EditPaymentModal({ payment, onClose, onSave }) {
               </div>
               <div className="form-group">
                 <label className="label">Payment Status</label>
-                <select className="input" value={form.payment_status} onChange={e => set('payment_status', e.target.value)}>
-                  {PAYMENT_STATUSES.map(s => (
-                    <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
-                  ))}
-                </select>
+                <div className="input" style={{ opacity: 0.85, cursor: 'not-allowed', display: 'flex', alignItems: 'center' }}>
+                  {form.payment_status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </div>
+                <span className="field-hint">Status is calculated automatically from paid and balance amounts.</span>
               </div>
             </div>
 
