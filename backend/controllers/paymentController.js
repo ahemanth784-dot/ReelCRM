@@ -63,10 +63,6 @@ const getPayment = async (req, res) => {
 
 // PATCH /api/payments/:clientId/status
 const updatePaymentStatus = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Only admins can update payment status.' });
-  }
-
   const { payment_status } = req.body;
   if (!PAYMENT_STATUSES.includes(payment_status)) {
     return res.status(400).json({ message: 'Invalid payment status.' });
@@ -106,10 +102,6 @@ const updatePaymentStatus = async (req, res) => {
 
 // PUT /api/payments/:clientId
 const updatePayment = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Only admins can update payment records.' });
-  }
-
   const { total_amount, deposit_amount, paid_amount, payment_status, payment_method, notes, due_date } = req.body;
   const total = parseFloat(total_amount)||0;
   const paid = parseFloat(paid_amount)||0;

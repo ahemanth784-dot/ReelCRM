@@ -117,16 +117,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p style={{ textAlign:'center', marginTop:24, fontSize:14, color:'rgba(255,255,255,0.4)' }}>
-          No account?{' '}
-          <Link to="/register" style={{ color:'#818CF8', fontWeight:600, textDecoration:'none' }}>Create one</Link>
-        </p>
-
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
-
-
-

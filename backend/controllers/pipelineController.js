@@ -46,10 +46,6 @@ const updateStage = async (req, res) => {
 
 // PATCH /api/pipeline/client/:clientId/stage
 const updateClientStage = async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Only admins can update client stage.' });
-  }
-
   const { stage } = req.body;
   if (!STAGES.includes(stage)) return res.status(400).json({ message: 'Invalid stage.' });
 

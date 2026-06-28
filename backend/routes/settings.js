@@ -1,8 +1,9 @@
 const router = require('express').Router();
 const auth = require('../middleware/auth');
+const { adminOnly } = require('../middleware/auth');
 const { getProfile, updateProfile, changePassword } = require('../controllers/settingsController');
 
-router.use(auth);
+router.use(auth, adminOnly);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
 router.put('/change-password', changePassword);

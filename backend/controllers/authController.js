@@ -2,73 +2,47 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 
-const SHARED_WORKSPACE_EMAILS = ['ahemanth784@gmail.com', 'karthiknukala08@gmail.com'];
-const WORKSPACE_OWNER_ID = 1;
+const WORKSPACE_OWNER_ID = Number(process.env.WORKSPACE_OWNER_ID || 1);
 const DISPLAY_NAMES = {
   'ahemanth784@gmail.com': 'Aluvala Hemanth',
   'karthiknukala08@gmail.com': 'Karthik Nukala'
 };
 
-const getWorkspaceUserForLogin = async (user) => {
-  if (!SHARED_WORKSPACE_EMAILS.includes(String(user.email).toLowerCase())) return user;
-  const owner = await pool.query('SELECT * FROM users WHERE id = $1', [WORKSPACE_OWNER_ID]);
-  return owner.rows[0] || user;
-};
-
-// POST /api/auth/register
-const register = async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password)
-    return res.status(400).json({ message: 'All fields are required.' });
-
-  try {
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (exists.rows.length > 0)
-      return res.status(409).json({ message: 'Email already registered.' });
-
-    const hashed = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, role`,
-      [name, email, hashed]
-    );
-    const user = result.rows[0];
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ token, user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error.' });
-  }
-};
+const safeUser = user => ({
+  id: user.id,
+  name: DISPLAY_NAMES[String(user.email || '').toLowerCase()] || user.name,
+  fullName: DISPLAY_NAMES[String(user.email || '').toLowerCase()] || user.name,
+  email: user.email,
+  username: user.username || '',
+  role: user.role,
+  isActive: user.is_active !== false,
+  studio_name: user.studio_name,
+  studio_phone: user.studio_phone,
+  studio_address: user.studio_address,
+  avatar_url: user.avatar_url,
+  created_at: user.created_at,
+  login_email: user.email,
+  workspace_id: WORKSPACE_OWNER_ID
+});
 
 // POST /api/auth/login
 const login = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ message: 'Email and password are required.' });
+  if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (result.rows.length === 0)
-      return res.status(401).json({ message: 'Invalid credentials.' });
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [String(email).toLowerCase()]);
+    if (result.rows.length === 0) return res.status(401).json({ message: 'Invalid credentials.' });
 
     const user = result.rows[0];
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid)
-      return res.status(401).json({ message: 'Invalid credentials.' });
+    if (!['admin', 'staff'].includes(user.role)) return res.status(403).json({ message: 'Invalid user role.' });
+    if (user.is_active === false) return res.status(403).json({ message: 'Account is inactive. Contact admin.' });
 
-    const workspaceUser = await getWorkspaceUserForLogin(user);
-    const token = jwt.sign({ id: workspaceUser.id, email: user.email, role: workspaceUser.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    const { password: _workspacePassword, ...safeWorkspaceUser } = workspaceUser;
-    res.json({
-      token,
-      user: {
-        ...safeWorkspaceUser,
-        name: DISPLAY_NAMES[String(user.email).toLowerCase()] || user.name,
-        email: user.email,
-        login_email: user.email,
-        workspace_id: workspaceUser.id
-      }
-    });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ message: 'Invalid credentials.' });
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: safeUser(user) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error.' });
@@ -79,51 +53,21 @@ const login = async (req, res) => {
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email is required.' });
-  try {
-    const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    // Always return success to prevent email enumeration
-    res.json({ message: 'If that email exists, a reset link has been sent.' });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error.' });
-  }
+  res.json({ message: 'If that email exists, a reset link has been sent.' });
 };
 
 // GET /api/auth/me
 const getMe = async (req, res) => {
   try {
-    const workspaceResult = await pool.query(
-      'SELECT id, name, email, role, studio_name, studio_phone, studio_address, avatar_url, created_at FROM users WHERE id = $1',
-      [req.user.id]
-    );
-    if (workspaceResult.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
-
-    let loginUser = null;
-    if (req.user.email) {
-      const loginResult = await pool.query(
-        'SELECT name, email, avatar_url FROM users WHERE email = $1',
-        [req.user.email]
-      );
-      loginUser = loginResult.rows[0] || null;
-    }
-
-    res.json({
-      ...workspaceResult.rows[0],
-      name: DISPLAY_NAMES[String(loginUser?.email || req.user.email || '').toLowerCase()] || loginUser?.name || workspaceResult.rows[0].name,
-      email: loginUser?.email || req.user.email || workspaceResult.rows[0].email,
-      avatar_url: loginUser?.avatar_url || workspaceResult.rows[0].avatar_url,
-      login_email: loginUser?.email || req.user.email || workspaceResult.rows[0].email,
-      workspace_id: workspaceResult.rows[0].id
-    });
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.userId]);
+    if (result.rows.length === 0) return res.status(404).json({ message: 'User not found.' });
+    const user = result.rows[0];
+    if (user.is_active === false) return res.status(403).json({ message: 'Account is inactive. Contact admin.' });
+    res.json(safeUser(user));
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Server error.' });
   }
 };
 
-module.exports = { register, login, forgotPassword, getMe };
-
-
-
-
-
-
-
+module.exports = { login, forgotPassword, getMe };

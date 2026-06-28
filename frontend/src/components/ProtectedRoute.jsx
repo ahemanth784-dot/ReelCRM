@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProtectedRoute() {
+export default function ProtectedRoute({ allowedRoles }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -13,12 +13,14 @@ export default function ProtectedRoute() {
             border: '4px solid var(--border)', borderTopColor: 'var(--primary)',
             animation: 'spin 0.8s linear infinite', margin: '0 auto 16px'
           }} />
-          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading ReelCRM…</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading ReelCRM�</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  return user ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (allowedRoles?.length && !allowedRoles.includes(user.role)) return <Navigate to="/403" replace />;
+  return <Outlet />;
 }

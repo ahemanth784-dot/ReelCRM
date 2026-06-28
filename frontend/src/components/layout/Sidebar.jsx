@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserPlus, Kanban, CreditCard,
-  Calendar, BarChart2, Settings, LogOut, Camera, X
+  Calendar, BarChart2, Settings, LogOut, Camera, X, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,9 +11,10 @@ const NAV = [
   { to: '/leads',     icon: UserPlus,        label: 'Leads' },
   { to: '/pipeline',  icon: Kanban,          label: 'Pipeline' },
   { to: '/payments',  icon: CreditCard,      label: 'Payments' },
-  { to: '/calendar',  icon: Calendar,        label: 'Calendar' },
+  { to: '/calendar',  icon: Calendar,        label: 'Calendar', roles: ['admin'] },
   { to: '/reports',   icon: BarChart2,       label: 'Reports' },
-  { to: '/settings',  icon: Settings,        label: 'Settings' },
+  { to: '/admin/staff', icon: ShieldCheck,    label: 'Staff Management', roles: ['admin'] },
+  { to: '/settings',  icon: Settings,        label: 'Settings', roles: ['admin'] },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -60,7 +61,7 @@ export default function Sidebar({ open, onClose }) {
         <div style={{ padding: '0 12px 6px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Main Menu
         </div>
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {NAV.filter(item => !item.roles || item.roles.includes(user?.role)).map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "db:init": "node scripts/initDb.js"
+    "db:init": "node scripts/initDb.js",
+    "create-admin": "node scripts/createFirstAdmin.js"
   },
   "engines": {
     "node": ">=20"

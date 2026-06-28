@@ -191,8 +191,10 @@ export default function TopNavbar({ onMenuClick }) {
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{user?.email}</div>
               </div>
               {[
-                { icon: User, label: 'Profile', action: () => { navigate('/settings'); setShowProfile(false); } },
-                { icon: Settings, label: 'Settings', action: () => { navigate('/settings'); setShowProfile(false); } },
+                ...(user?.role === 'admin' ? [
+                  { icon: User, label: 'Profile', action: () => { navigate('/settings'); setShowProfile(false); } },
+                  { icon: Settings, label: 'Settings', action: () => { navigate('/settings'); setShowProfile(false); } },
+                ] : []),
                 { icon: LogOut, label: 'Logout', action: handleLogout, danger: true },
               ].map(({ icon: Icon, label, action, danger }) => (
                 <button key={label} onClick={action} style={{

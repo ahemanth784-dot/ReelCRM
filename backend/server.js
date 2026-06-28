@@ -39,6 +39,7 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/staff', require('./routes/staff'));
 app.use('/api/notifications', require('./routes/notifications'));
 
 // Health check

@@ -174,13 +174,9 @@ export default function PaymentsPage() {
                       <PayStatusBadge status={p.payment_status} />
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      {user?.role === 'admin' ? (
-                        <button onClick={() => handleEditClick(p)} className="btn btn-secondary btn-icon" title="Edit details">
-                          <Edit2 size={14} />
-                        </button>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Admin only</span>
-                      )}
+                      <button onClick={() => handleEditClick(p)} className="btn btn-secondary btn-icon" title="Edit details">
+                        <Edit2 size={14} />
+                      </button>
                     </td>
                   </tr>
                 ))}

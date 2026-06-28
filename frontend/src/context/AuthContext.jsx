@@ -32,15 +32,6 @@ export const AuthProvider = ({ children }) => {
     return u;
   };
 
-  const register = async (name, email, password) => {
-    const res = await api.post('/auth/register', { name, email, password });
-    const { token: t, user: u } = res.data;
-    setToken(t);
-    setUser(u);
-    api.defaults.headers.common['Authorization'] = `Bearer ${t}`;
-    localStorage.setItem('reelcrm_token', t);
-    return u;
-  };
 
   const logout = () => {
     setUser(null);
@@ -53,7 +44,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (updates) => setUser(prev => ({ ...prev, ...updates }));
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

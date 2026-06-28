@@ -38,6 +38,8 @@ if (fs.existsSync(DB_FILE)) {
       email: 'ahemanth784@gmail.com',
       password: bcrypt.hashSync('Admin@123', 10),
       role: 'admin',
+      username: '',
+      is_active: true,
       studio_name: 'thereelshoot Studio',
       studio_phone: '+91 98765 43210',
       studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
@@ -51,6 +53,8 @@ if (fs.existsSync(DB_FILE)) {
       email: 'karthiknukala08@gmail.com',
       password: bcrypt.hashSync('Admin@123', 10),
       role: 'admin',
+      username: '',
+      is_active: true,
       studio_name: 'thereelshoot Studio',
       studio_phone: '+91 98765 43210',
       studio_address: 'Bandra West, Mumbai, Maharashtra 400050',
@@ -129,6 +133,76 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
     const sql = text.trim().replace(/\s+/g, ' ');
     const sqlLower = sql.toLowerCase();
 
+    // -- Auth / Staff RBAC --
+    if (sqlLower.startsWith('alter table users add column')) {
+      return { rows: [] };
+    }
+
+    if (sqlLower === 'select * from users where id = $1' || sqlLower === 'select * from users where id=$1') {
+      const user = users.find(u => u.id === Number(params[0]));
+      return { rows: user ? [{ is_active: true, username: '', ...user }] : [] };
+    }
+
+    if (sqlLower.includes("from users where role = 'staff'")) {
+      const rows = users
+        .filter(u => u.role === 'staff')
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .map(u => ({ is_active: true, username: '', ...u }));
+      return { rows };
+    }
+
+    if (sqlLower.includes('select id from users where email = $1 and id <> $2')) {
+      const [email, id] = params;
+      const user = users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase() && u.id !== Number(id));
+      return { rows: user ? [{ id: user.id }] : [] };
+    }
+
+    if (sqlLower.includes('insert into users') && sqlLower.includes('username') && sqlLower.includes("'staff'")) {
+      const [name, email, username, password] = params;
+      const newUser = {
+        id: users.length ? Math.max(...users.map(u => u.id)) + 1 : 1,
+        name,
+        email,
+        username: username || '',
+        password,
+        role: 'staff',
+        is_active: true,
+        studio_name: 'thereelshoot Studio',
+        studio_phone: '',
+        studio_address: '',
+        avatar_url: '',
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      users.push(newUser);
+      return { rows: [newUser] };
+    }
+
+    if (sqlLower.includes('update users set name=$1, email=$2, username=$3, is_active=$4')) {
+      const [name, email, username, isActive, id] = params;
+      const idx = users.findIndex(u => u.id === Number(id) && u.role === 'staff');
+      if (idx === -1) return { rows: [] };
+      users[idx] = { ...users[idx], name, email, username: username || '', is_active: isActive !== false, updated_at: new Date() };
+      return { rows: [users[idx]] };
+    }
+
+    if (sqlLower.includes('update users set password=$1') && sqlLower.includes("role='staff'")) {
+      const [password, id] = params;
+      const idx = users.findIndex(u => u.id === Number(id) && u.role === 'staff');
+      if (idx === -1) return { rows: [] };
+      users[idx].password = password;
+      users[idx].updated_at = new Date();
+      return { rows: [users[idx]] };
+    }
+
+    if (sqlLower.includes('delete from users where id=$1') && sqlLower.includes("role='staff'")) {
+      const id = Number(params[0]);
+      const idx = users.findIndex(u => u.id === id && u.role === 'staff');
+      if (idx === -1) return { rows: [] };
+      const deleted = users.splice(idx, 1)[0];
+      return { rows: [deleted] };
+    }
+
     // -- Auth --
     if (sqlLower.includes('select id from users where email = $1') || sqlLower.includes('select id from users where email=$1')) {
       const email = params[0];
@@ -143,7 +217,9 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
         name,
         email,
         password,
-        role: 'admin',
+        role: 'staff',
+        username: '',
+        is_active: true,
         studio_name: 'thereelshoot Studio',
         studio_phone: '',
         studio_address: '',
@@ -720,7 +796,3 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 }
 
 module.exports = pool;
-
-
-
-

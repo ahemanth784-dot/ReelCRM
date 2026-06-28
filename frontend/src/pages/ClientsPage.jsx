@@ -424,7 +424,7 @@ export default function ClientsPage() {
                     {c.event_date&&<span style={{display:'flex',alignItems:'center',gap:4}}><Calendar size={11}/>{fmtDate(c.event_date)}</span>}
                   </td>
                   <td>
-                    {user?.role === 'admin' ? (
+                    {(user?.role === 'admin' || user?.role === 'staff') ? (
                       <select
                         className="input"
                         aria-label={`Stage for ${c.name}`}
@@ -442,7 +442,7 @@ export default function ClientsPage() {
                     )}
                   </td>
                   <td>
-                    {user?.role === 'admin' ? (
+                    {false ? (
                       <select
                         className="input"
                         aria-label={`Payment status for ${c.name}`}
