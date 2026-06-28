@@ -1,4 +1,4 @@
-﻿const crypto = require('crypto');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
@@ -48,24 +48,28 @@ const hashToken = token => crypto.createHash('sha256').update(token).digest('hex
 
 const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
 
-const getMailTransport = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+const getMailConfigError = () => {
+  if (!nodemailer) return 'Email package is not installed on the backend.';
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return 'Password reset email is not configured. Add SMTP_HOST, SMTP_USER, and SMTP_PASS in Render.';
+  }
+  return '';
+};
 
-  if (!host || !user || !pass || !nodemailer) return null;
+const getMailTransport = () => {
+  const port = Number(process.env.SMTP_PORT || 587);
   return nodemailer.createTransport({
-    host,
+    host: process.env.SMTP_HOST,
     port,
     secure: port === 465,
-    auth: { user, pass }
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
   });
 };
 
 const sendResetEmail = async ({ to, name, resetLink }) => {
+  const configError = getMailConfigError();
+  if (configError) return false;
   const transport = getMailTransport();
-  if (!transport) return false;
 
   await transport.sendMail({
     from: process.env.MAIL_FROM || process.env.SMTP_USER,
@@ -118,6 +122,10 @@ const forgotPassword = async (req, res) => {
   if (!/\S+@\S+\.\S+/.test(normalizedEmail)) return res.status(400).json({ message: 'Valid email is required.' });
 
   const response = { message: 'If that email exists, a reset link has been sent.' };
+  const mailConfigError = getMailConfigError();
+  if (mailConfigError && process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ message: mailConfigError });
+  }
 
   try {
     await ensureResetColumns();
