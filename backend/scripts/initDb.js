@@ -49,6 +49,8 @@ const initialize = async () => {
 
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(100) UNIQUE');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255)');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP');
 
     const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM users');
     if (rows[0].count === 0) await maybeCreateFirstAdmin();
@@ -61,3 +63,4 @@ initialize().catch(error => {
   console.error('Database initialization failed:', error);
   process.exit(1);
 });
+

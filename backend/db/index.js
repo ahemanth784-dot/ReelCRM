@@ -98,7 +98,7 @@ if (fs.existsSync(DB_FILE)) {
 
   activities = [
     { id: 1, user_id: 1, client_id: 1, type: 'client_added', description: 'New client Priya Sharma added', created_at: new Date(Date.now() - 3600000 * 2) },
-    { id: 2, user_id: 1, client_id: 3, type: 'payment_received', description: 'Full payment ₹28,000 received from Ananya Krishnan', created_at: new Date(Date.now() - 600000) }
+    { id: 2, user_id: 1, client_id: 3, type: 'payment_received', description: 'Full payment â‚¹28,000 received from Ananya Krishnan', created_at: new Date(Date.now() - 600000) }
   ];
   
   // Save initial state
@@ -113,17 +113,17 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
   });
 
   pool.on('connect', () => {
-    console.log('✅ Connected to PostgreSQL');
+    console.log('âœ… Connected to PostgreSQL');
   });
 
   pool.on('error', (err) => {
-    console.error('❌ PostgreSQL pool error:', err);
+    console.error('âŒ PostgreSQL pool error:', err);
     process.exit(-1);
   });
 } else {
   // Fall back to SQLite-like mock query parser
   isMock = true;
-  console.log('⚠️ No DATABASE_URL found. Running with in-memory Mock database (Default logins: ahemanth784@gmail.com / Admin@123 and karthiknukala08@gmail.com / Admin@123).');
+  console.log('âš ï¸ No DATABASE_URL found. Running with in-memory Mock database (Default logins: ahemanth784@gmail.com / Admin@123 and karthiknukala08@gmail.com / Admin@123).');
 
   const persistDb = () => {
     fs.writeFileSync(DB_FILE, JSON.stringify({ users, clients, leads, pipeline, payments, activities }, null, 2));
@@ -201,6 +201,36 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
       if (idx === -1) return { rows: [] };
       const deleted = users.splice(idx, 1)[0];
       return { rows: [deleted] };
+    }
+
+
+    if (sqlLower.includes('update users set password_reset_token=$1')) {
+      const [tokenHash, expiresAt, id] = params;
+      const idx = users.findIndex(u => u.id === Number(id));
+      if (idx !== -1) {
+        users[idx].password_reset_token = tokenHash;
+        users[idx].password_reset_expires = expiresAt;
+        users[idx].updated_at = new Date();
+      }
+      return { rows: [] };
+    }
+
+    if (sqlLower.includes('select * from users where password_reset_token=$1')) {
+      const tokenHash = params[0];
+      const now = new Date();
+      const user = users.find(u => u.password_reset_token === tokenHash && new Date(u.password_reset_expires) > now);
+      return { rows: user ? [user] : [] };
+    }
+
+    if (sqlLower.includes('update users set password=$1, password_reset_token=null')) {
+      const [password, id] = params;
+      const idx = users.findIndex(u => u.id === Number(id));
+      if (idx === -1) return { rows: [] };
+      users[idx].password = password;
+      users[idx].password_reset_token = null;
+      users[idx].password_reset_expires = null;
+      users[idx].updated_at = new Date();
+      return { rows: [] };
     }
 
     // -- Auth --
@@ -796,3 +826,4 @@ if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('user:passwor
 }
 
 module.exports = pool;
+

@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
   studio_phone VARCHAR(50),
   studio_address TEXT,
   avatar_url TEXT,
+  password_reset_token VARCHAR(255),
+  password_reset_expires TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -100,3 +102,4 @@ CREATE INDEX IF NOT EXISTS idx_pipeline_stage ON pipeline(stage);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(payment_status);
 CREATE INDEX IF NOT EXISTS idx_activities_user_id ON activities(user_id);
+

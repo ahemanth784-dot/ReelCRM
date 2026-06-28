@@ -1,6 +1,6 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, Mail, ArrowLeft, Send, CheckCircle, Loader2 } from 'lucide-react';
+import { Camera, Mail, ArrowLeft, Send, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
 import api from '../../api/axios';
 
 export default function ForgotPasswordPage() {
@@ -8,17 +8,20 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [devResetLink, setDevResetLink] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) { setError('Email is required'); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { setError('Invalid email'); return; }
     setLoading(true);
+    setDevResetLink('');
     try {
-      await api.post('/auth/forgot-password', { email });
+      const res = await api.post('/auth/forgot-password', { email });
+      if (res.data?.resetLink) setDevResetLink(res.data.resetLink);
       setSent(true);
-    } catch {
-      setSent(true); // Show success regardless (security)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to send reset link. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -42,6 +45,11 @@ export default function ForgotPasswordPage() {
             <p style={{ color:'rgba(255,255,255,0.5)', fontSize:14, marginBottom:24 }}>
               If an account exists for <strong style={{ color:'rgba(255,255,255,0.7)' }}>{email}</strong>, you'll receive a reset link shortly.
             </p>
+            {devResetLink && (
+              <a href={devResetLink} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, color:'#A5B4FC', marginBottom:18, wordBreak:'break-all', fontSize:13 }}>
+                <ExternalLink size={15} /> Open local reset link
+              </a>
+            )}
             <Link to="/login" className="btn btn-primary w-full" style={{ justifyContent:'center' }}>
               <ArrowLeft size={16} /> Back to Login
             </Link>
@@ -73,4 +81,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-
